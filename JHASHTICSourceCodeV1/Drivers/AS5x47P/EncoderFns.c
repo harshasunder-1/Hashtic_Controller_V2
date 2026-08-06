@@ -170,11 +170,11 @@ float getEncoderAngleFromSPI(uint8_t continuousRead){
 	return angleMech;
 }
 
-
+ReadDataFrame readdataframe;	
 int16_t ENC_getRawReadingFromSPI(void){
   Angle angle;
   uint16_t angleData=0;
-  ReadDataFrame readdataframe;	
+
   readdataframe.raw = AS5047_SPI_Read(ANGLE_READ_FRAME,0);//AS5047_readRegister(ANGLE_REG,1);
   if (readdataframe.values.ef == 1){
     return -1;

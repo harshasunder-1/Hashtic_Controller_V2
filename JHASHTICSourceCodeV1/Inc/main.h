@@ -141,27 +141,8 @@ typedef enum {
   ENCODER_INDEX_ERROR = 87,
   ENCODER_TRANSITION_ERROR = 86,
   CC_START_SEQ_FAIL = 85,
+  START_IDLE_NOT_REACHED=84,
 } CustomErrors;
-
-typedef struct{
-  uint8_t SWITCH;
-  int16_t SET_RPM;
-  uint8_t MUL_FACT;
-  uint16_t SEC;
-  int16_t SPEED_RPM;
-  uint16_t ABS_SPEED_RPM;
-  uint8_t PRE_FAULT;
-  uint8_t FAULT_OCCURED;
-  uint8_t MY_MOTOR_STATE;
-  int16_t DC_VOLTAGE;
-  int8_t POLARITY;
-  uint8_t MODE;
-  uint8_t ALIGN;
-  uint16_t SET_AMPS;
-  uint16_t RAMPUPTIME;
-  CustomErrors CustomFaults;
-}SystemVariables_Struct_t;
-
 
 /* USER CODE END Private defines */
 

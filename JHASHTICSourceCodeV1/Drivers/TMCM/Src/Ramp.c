@@ -49,9 +49,8 @@ void Ramping(systemState *ss){
     RampOp.IsTargetRampDownCompleted = MCI_RampCompleted(pMCI[M1]);
     if(RampOp.IsTargetRampDownCompleted == 1 && (ss->currentAbsRpm <= RAMPDOWN_TURNOFF_SPEED)){     
       ss->targetRPM=0;
-      MC_StopMotor1();
+      TMCM_SpeedLoop_TurnOff(); 
       RampTurnOff();
-      MC_Clear_IqdrefMotor1();
       hTargetSpeedUserDefined = 0;
     }
   } 
@@ -68,9 +67,8 @@ void OverallTimerTurnOff(systemState *ss){
   // Turn Off the mtor if the entire running time exceeds the actual runtime specified for operation
   if(RampOp.overallTimer >= TOTAL_RUNTIME_SEC){
       ss->targetRPM=0;
-      MC_StopMotor1();
+      TMCM_SpeedLoop_TurnOff(); 
       RampTurnOff();
-      MC_Clear_IqdrefMotor1();
       hTargetSpeedUserDefined=0;
     } 
 }

@@ -80,9 +80,8 @@ void laptopRun(laptopControl *lc,systemState *ss){
 
 void laptopStop(laptopControl *lc,systemState *ss){
     ss->targetRPM=0;
-    MC_StopMotor1();
+    TMCM_SpeedLoop_TurnOff();
     RampTurnOff();
-    MC_Clear_IqdrefMotor1();
 }
 
 void laptopChangeRPM(laptopControl *lc){
@@ -101,22 +100,19 @@ void laptopCC_on(laptopContinuousControl *lcc){
     lcc->timerOn_bool=1;
 }
 
-void laptopCC_increment(laptopContinuousControl *lcc){
+void laptopCC_increment(laptopContinuousControl *lcc,systemState *ss){
   lcc->idx += 1;
   if (lcc->idx > lcc->stopIdx){
-    MC_StopMotor1();
-    MC_Clear_IqdrefMotor1();
+    TMCM_SpeedLoop_TurnOff();
     lcc->timerOn_bool = 0;
   }else{
-    lcc->target = CONTINOUS_RPMS[lcc->idx] * lcc->direction ;
+    lcc->target = CONTINOUS_RPMS[lcc->idx] ;
    
-    MC_ProgramSpeedRampMotor1(lcc->target/6,10);
+    MC_ProgramSpeedRampMotor1(lcc->target/6 * lcc->direction,10);
   }
 }
 
 void laptopCC_stop(laptopContinuousControl *lcc){
-  MC_StopMotor1();
-  MC_Clear_IqdrefMotor1();
   lcc->timerOn_bool = 0;
   lcc->idx = 0;
   lcc->target = 0;

@@ -38,7 +38,7 @@ void laptopChangeRPM(laptopControl *lc);
 
 
 void laptopCC_on(laptopContinuousControl *lcc);
-void laptopCC_increment(laptopContinuousControl *lcc);
+void laptopCC_increment(laptopContinuousControl *lcc,systemState *ss);
 void laptopCC_stop(laptopContinuousControl *lcc);
 
 #endif

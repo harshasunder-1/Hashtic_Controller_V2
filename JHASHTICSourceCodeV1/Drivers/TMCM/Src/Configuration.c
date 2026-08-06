@@ -20,6 +20,8 @@ int16_t getMotorIndexFromMotorID(uint8_t motorID){
     return MOTOR8_ZERO_POS;
   case MOTOR9:
     return MOTOR9_ZERO_POS;
+  case MOTOR10:
+    return MOTOR10_ZERO_POS;
   default: 
     return -1;
 

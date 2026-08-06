@@ -4,6 +4,7 @@
 #include "state_machine.h" //this is mcsdk state machine
 #include "motorcontrol.h"
 
+extern MCI_Handle_t * pMCI[NBR_OF_MOTORS];
 
 uint8_t CheckPodState(systemState *ss){
   
@@ -46,5 +47,16 @@ void updateTMCMState(systemState *ss){
   ss->MCSDK_STATE = MC_GetSTMStateMotor1();
   ss->phaseVoltageRMS = (int16_t)((MC_GetPhaseVoltageAmplitudeMotor1())/1.414f);
   ss->phaseCurrentRMS = (int16_t)((MC_GetPhaseCurrentAmplitudeMotor1())/1.414f);
+}
+
+
+uint8_t TMCM_SpeedLoop_TurnOff(void){   
+    MC_StopMotor1();      
+    MC_ProgramSpeedRampMotor1(0, 0); // asynchronous
+    MC_Clear_IqdrefMotor1();
+    pMCI[0]->pSTC->TargetFinal = 0;
+    pMCI[0]->pSTC->SpeedRefUnitExt = 0;
+    pMCI[0]->pSTC->TorqueRef = 0;
+    return 1;
 }
 

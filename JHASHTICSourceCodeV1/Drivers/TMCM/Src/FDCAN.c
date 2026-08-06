@@ -119,9 +119,10 @@ uint8_t CheckCanInputsContinuous(CAN_Continuous_Input *s){
       IsDirectionOk = 1;
     }
     
-    if ((s->controlQty == 0) && (s->indexID == 0)){
+    startInputsOK = 1;
+ /*   if ((s->controlQty == 0) && (s->indexID == 0)){
       startInputsOK = 1;
-    }
+    }*/
     
     if (IsDirectionOk==1 && startInputsOK==1){
       return 1;
@@ -160,8 +161,8 @@ void FDCAN_CC_TMCM_sendRunTimeData(void)
   
   TxData[0]= ss.indexID>>8;
   TxData[1]= ss.indexID;
-  TxData[2]= ss.targetRPM>>8;
-  TxData[3]= ss.targetRPM;
+  TxData[2]= (hTargetSpeedUserDefined)>>8;
+  TxData[3]= hTargetSpeedUserDefined;
   TxData[4]= ss.currentRPM>>8;
   TxData[5]= ss.currentRPM;
   TxData[6]= FOCVars[0].Iqdref.q>>8;
@@ -243,30 +244,33 @@ void FDCAN_CC_TMCM_log(void)
 void FDCAN_SendStopBrakeMsg(void)
 {
   TxHeader.Identifier =(0x18343020);  //src 0x30-tmcm, dst 0x20 - brake board 
-  TxHeader.DataLength = FDCAN_DLC_BYTES_3;
+  TxHeader.DataLength = FDCAN_DLC_BYTES_4;
   TxData[0]= 0;
   TxData[1]= 0;
   TxData[2]= 0;
+  TxData[3]= 0;
   HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData);
 }
 
 void FDCAN_SendControlledBrakeMsg(void)
 {
   TxHeader.Identifier =(0x18343020);  //src 0x30-tmcm, dst 0x20 - brake board 
-  TxHeader.DataLength = FDCAN_DLC_BYTES_3;
+  TxHeader.DataLength = FDCAN_DLC_BYTES_4;
   TxData[0]= 0;
   TxData[1]= 0;
   TxData[2]= 1;
+  TxData[3]= 50;
   HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData);
 }
 void FDCAN_SendSlamBrakeMsg(void)
 {
   TxHeader.Identifier =(0x18343020);  //src 0x30-tmcm, dst 0x20 - brake board 
-  TxHeader.DataLength = FDCAN_DLC_BYTES_3;
+  TxHeader.DataLength = FDCAN_DLC_BYTES_4;
   uint16_t rpm = 300;
   TxData[0]= rpm>>8;
   TxData[1]= rpm;
   TxData[2]=1;
+  TxData[3]=0;
   HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData);
 }
 
@@ -301,7 +305,6 @@ void FDCAN_TMCM_StopFrame(uint8_t errorReason){
   
 }
 
-uint32_t t1=0,prevTick=0,dT=0;
 uint8_t firstMsg = 0;
 uint8_t deltaID=0;
 uint16_t dRPM=0;
@@ -322,17 +325,13 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
     canSSIp.steadyStateTime =  ((RxData[7]<<8)|(RxData[6]));
         
     if(canSSIp.motorAction == STOP_COASTING){ 
-      MC_StopMotor1();
-      RampTurnOff();
-      MC_Clear_IqdrefMotor1();
-      hTargetSpeedUserDefined=0;
-      ss.cc_ramp = CC_RAMPOFF;
-      FDCAN_SendPCMAckMsg(1);
+      cc_turnOff = 1;
     }
     
     else if(canSSIp.motorAction == MOTORON){
+      // DO NOTHING, only allow running with CC
       
-      inputsOk = CheckCanInputs(&canSSIp); // checks set RPM , and checks ramp up time
+      /*inputsOk = CheckCanInputs(&canSSIp); // checks set RPM , and checks ramp up time
       podOK = CheckPodState(&ss);  // checks if motor state is not run, checks if pod is not moving, checks if encoder is OK
       //also check temperature 
       
@@ -356,15 +355,13 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
         
         FDCAN_SendPCMAckMsg(1);
         cc_stopMsg_oneTime = 0;
+
       }
       else{ 
-        ss.targetRPM=0;
-        MC_StopMotor1();
         RampTurnOff();
-        MC_Clear_IqdrefMotor1();
-        hTargetSpeedUserDefined = 0;
         FDCAN_SendPCMAckMsg(2);
-      }
+        cc_turnOff = 1;
+      } */
     }
     
     else if (canSSIp.motorAction == SS_STOP_REGEN){
@@ -380,17 +377,12 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
     
     else if (canSSIp.motorAction == SS_STOP_COAST_MECH_BRAKE){
       // coasting and mech braking
-      ss.targetRPM=0;
-      MC_StopMotor1();
-      RampTurnOff();
-      MC_Clear_IqdrefMotor1();
-      hTargetSpeedUserDefined = 0;
-      ss.cc_ramp = CC_RAMPOFF;
+      cc_turnOff = 1;
       ss.runType=NO_RUN;
-      //FDCAN_SendBrakeMsg(1); //break engage
-      FDCAN_SendControlledBrakeMsg();
       ss.brakeState++;
+      FDCAN_SendControlledBrakeMsg();
       FDCAN_SendPCMAckMsg(1);
+      
     }
     
     else if (canSSIp.motorAction == SS_DISENGAGE_MECHBRAKE){
@@ -401,17 +393,12 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
     
     else if (canSSIp.motorAction == SS_ENGAGE_MECHBRAKE){
       // coasting and mech braking
-      ss.targetRPM=0;
-      MC_StopMotor1();
-      RampTurnOff();
-      MC_Clear_IqdrefMotor1();
-      hTargetSpeedUserDefined = 0;
-      ss.cc_ramp = CC_RAMPOFF;
+      cc_turnOff = 1;
       ss.runType=NO_RUN;
-     // FDCAN_SendSlamBrakeMsg(); //break engage
       FDCAN_SendControlledBrakeMsg();
       ss.brakeState++;
       FDCAN_SendPCMAckMsg(1);
+
     }
     
     else if (canSSIp.motorAction == SS_REGEN_MECH_BRAKE){
@@ -422,7 +409,6 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
       RampOp.steadyStateElapsedTime = 0;
       ss.cc_ramp = CC_RAMPOFF;
       ss.runType=NO_RUN;
-      //FDCAN_SendBrakeMsg(1); //break engage 
       FDCAN_SendControlledBrakeMsg();
       ss.brakeState++;
       FDCAN_SendPCMAckMsg(1);
@@ -435,7 +421,6 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
     else{
     }
     break;
-    
         
   case PRECHARGE_FUNCTIONID: //always make a sound
 
@@ -443,16 +428,17 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
     PCOn = RxData[0];
     ss.targetRPM =  0;
     ss.indexID  = 0;
+    ss.brakeDistance = 0;
     ss.travelledDist = 0;
-    ss.cc_state =CC_IDLE;
+    ss.cc_state = CC_IDLE;
     ss.CustomFaults = NO_FAULTS; //remove faults when u get precharge
     b.brakeCounter = 0;
-    
+       
     //reset start seq
     resetStartSeqParams( &ssq);
     resetStartSeqErrorState( &ssq);
-    
-    
+       
+
     PID_HandleInit(&PIDSpeedHandle_M1);   
     PID_HandleInit(&PIDIqHandle_M1);
     PID_HandleInit(&PIDIdHandle_M1);
@@ -477,14 +463,16 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
         if (podOK && inputsOk){
           ss.indexID = 0;
           ss.targetRPM = 0;
-          if(canContIp.direction==0xFF){
+          if(canContIp.direction==0xFF){ // REVERSE FROM APP
             if (c.positionInPod == LEFT_SIDE){ss.direction = -1;}
             if (c.positionInPod == RIGHT_SIDE){ss.direction = 1;}
           }
-          else if(canContIp.direction==0xAA){
+          else if(canContIp.direction==0xAA){ // FORWARD FROM APP
             if (c.positionInPod == LEFT_SIDE){ss.direction = 1;}
             if (c.positionInPod == RIGHT_SIDE){ss.direction = -1;}
           }
+          ss.targetRPM = canContIp.controlQty;
+          ss.brakeDistance = canContIp.indexID;
           
           firstMsg = 1;
           //start Timer 
@@ -508,27 +496,17 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
           //MC_ProgramSpeedRampMotor1(ss.direction * ss.targetRPM/6, 10);
           //MC_StartMotor1();
           
-
         }else{
           //send one error msg
-          MC_StopMotor1();
-          MC_Clear_IqdrefMotor1();
           FDCAN_SendPCMAckMsg(2);
-          ss.cc_state=CC_IDLE;
-          ss.cc_ramp = CC_RAMPOFF;
-          ss.runType=NO_RUN;
+          cc_turnOff = 1;
         }        
     }
     else if (canContIp.motorAction == STOP_COASTING){
       //coasting Turn off
       //stop looking at any further continuous Data values
-        MC_StopMotor1();
-        MC_Clear_IqdrefMotor1();
-        hTargetSpeedUserDefined = 0;
         FDCAN_SendPCMAckMsg(1);
-        ss.cc_state=CC_IDLE;
-        ss.cc_ramp = CC_RAMPOFF;
-        ss.runType=NO_RUN;
+        cc_turnOff = 1;
     } 
     /*else if (canContIp.motorAction == CC_DATA_IP){ 
       //check if time we ve got it in is correct

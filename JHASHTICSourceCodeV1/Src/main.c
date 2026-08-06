@@ -153,8 +153,10 @@ int16_t stEnc_deltaVal=0;
 int16_t spiRaw = 0 ;
 uint8_t triggerSPIAngleReading = 0;
 float ABI_elAngle = 0,spi_elAngle=0,deltaAngles=0,encFault_deltaAngle=0,encFault_spiAngle=0;
-uint8_t encFaultCounter = 0,testDirError = 0,resetCustomFaults=0;
-uint8_t ssqErrorState = 0,resetStartSeq=0;
+uint8_t encFaultCounter = 0,testDirError = 0,resetCustomFaults=0,spi_FailCount = 0;
+uint8_t ssqErrorState = 0,resetStartSeq=0,turnOffOK=0;
+State_t start_state;
+uint32_t t1=0;
 extern MCI_Handle_t * pMCI[NBR_OF_MOTORS];
 
 /* USER CODE END 0 */
@@ -230,9 +232,17 @@ int main(void)
   //write the zero position and check
  
   ss.CustomFaults = NO_FAULTS;
-  c.motorID = 5 ;         
+  c.motorID = 5;    //motor 5 left side pod4      pod2 motor9 Right side    pod3 motor3 RightSide
   c.positionInPod = LEFT_SIDE;
-  c.signForCWRotation = 1;
+  
+  /* TO DO
+  | LEFT_SIDE  | sign for CW = 1  | Iq = +ve for FWD DIRECTION |REGEN -ve for FWD DIRECTION
+  | LEFT SIDE  | sign for CW = -1 | Iq = -ve for FWD DIRECTION |
+  | RIGHT_SIDE | sign for CW = 1  | Iq = -ve for FWD DIRECTION |REGEN +ve for FWD DIRECTION
+  | RIGHT_SIDE | sign for CW = -1 | Iq = +ve for FWD DIRECTION |
+  REGEN AND START_SEQ_IQ have to be set correctly.
+  */
+  c.signForCWRotation = 1;   
   if (c.signForCWRotation == -1){
     PIDSpeedHandle_M1.hKpGain *= -1;
     PIDSpeedHandle_M1.hKiGain *= -1;
@@ -245,20 +255,14 @@ int main(void)
     c.EncoderABIConfigLoaded = setupMotorEncoder_inABI_Mode(); 
     if (c.EncoderABIConfigLoaded == 0){ // this fault only comes during starting.
       ss.CustomFaults = ENCODER_INDEX_LOAD_FAIL; //If this fails, we dont let the machine to start
+      ss.cc_state = CC_ERROR;
     }
   }else{
     ss.CustomFaults = BAD_MOTOR_INDEX;
+    ss.cc_state = CC_ERROR;
   }
-  
-  MC_ProgramSpeedRampMotor1(0, 300 ); //10/8936 * 35 ~  0.04RMS
-  MC_StartMotor1();
-  HAL_Delay(100);
-  MC_StopMotor1();
-  MC_Clear_IqdrefMotor1();
-  //MC_ProgramSpeedRampMotor1(0, 300 ); // Go back to speed loop
- 
-  HAL_Delay(1000); //delay needed
-  
+  // Above faults have to be latched faults, we shouldnt be able to remove them 
+  // by pressing the precharge button
   
   InitializeEncFaults(&encFlts);
   initializeStartSeqParams(&ssq);
@@ -275,8 +279,27 @@ int main(void)
   ccT.PCM_timer_thresh = 6;
   cc_stopMsg_oneTime = 0;
   
-
+ //Wait till State goes to IDLE. The turn the motor on and off , so that the ABI and SPI sensors synchronize.
+  start_state = MC_GetSTMStateMotor1();
+  if (start_state == IDLE){
+    MC_ProgramSpeedRampMotor1(0, 300 ); //10/8936 * 35 ~  0.04RMS
+    MC_StartMotor1();
+    HAL_Delay(1000);
+    TMCM_SpeedLoop_TurnOff();
+  }else{
+    //SEE the MCSDK fault
+    ss.CustomFaults = START_IDLE_NOT_REACHED;
+    ss.cc_state = CC_ERROR;
+  }
   
+  if (ss.cc_state == CC_ERROR){
+    while(1){
+      //Wait for ever and keep sending error msg
+      ss.neverStarting++;
+      HAL_Delay(1000);
+    }
+  }
+
   // TODO: we also want to check temperature here and see if it is available, and also if its within limits when starting.
   // TODO: How do we check Encoder health during running?-DONE
   // TODO : check voltage, if voltage not there, throw error and send codes. Need to handle MCSDK errors properly, only custom errors 
@@ -297,6 +320,7 @@ int main(void)
     ProcessTemperatureADCs(&t);
     updateTMCMState(&ss); //voltage
     PrechargingLogic();
+    
     if(resetCustomFaults){
       ss.cc_state =CC_IDLE;
       ss.CustomFaults = NO_FAULTS;
@@ -365,9 +389,8 @@ int main(void)
     }
     
     if (turnOffMotor == 1){
-        MC_StopMotor1();
+        TMCM_SpeedLoop_TurnOff();        
         RampTurnOff();
-        MC_Clear_IqdrefMotor1();
         hTargetSpeedUserDefined=0;
         FDCAN_TMCM_StopFrame(ss.CustomFaults);
         ss.runType=NO_RUN;
@@ -379,10 +402,14 @@ int main(void)
     //Stop if SPI and ABI dont have the same reading.
     if (triggerSPIAngleReading){
       spiRaw = ENC_getRawReadingFromSPI();
-      if (spiRaw==-1){   
-        ss.CustomFaults = ENCODER_SPI_READ_FAIL;
-        ss.cc_state = CC_ERROR;
+      if (spiRaw==-1){ 
+        spi_FailCount ++;
+        if (spi_FailCount >= 3){
+          ss.CustomFaults = ENCODER_SPI_READ_FAIL;
+          ss.cc_state = CC_ERROR;
+        }
       }else{
+        spi_FailCount = 0;
         ABI_elAngle = (float)(htim2.Instance->CNT%409)/409.6f *360.0f;
         spi_elAngle = (spiRaw %3276)/3276.0f*360.0f;
         deltaAngles = (ABI_elAngle - spi_elAngle);
@@ -393,7 +420,7 @@ int main(void)
             encFault_deltaAngle = deltaAngles;
             ss.CustomFaults = ENCODER_ABI_SPI_DELTA;
             ss.cc_state = CC_ERROR;
-          }       
+          }
         }else{
           encFaultCounter = 0;
         }
@@ -418,7 +445,7 @@ int main(void)
     
     
     if (lcc.increment_signal){
-      laptopCC_increment(&lcc); 
+      laptopCC_increment(&lcc,&ss); 
       ss.indexID = lcc.idx;
       if (abs(lcc.target) < ss.targetRPM){
         ss.cc_ramp = CC_RAMPDOWN;
@@ -431,6 +458,7 @@ int main(void)
     }
     
     if(lcc.stop){
+      TMCM_SpeedLoop_TurnOff(); 
       laptopCC_stop(&lcc);
       ss.targetRPM =  0;
       ss.indexID  = 0;
@@ -444,37 +472,48 @@ int main(void)
     
     //BRAKING FOR CC
     if (ss.runType == CC){
-         if (b.brakeCounter == 0){
-            if (ss.travelledDist >= 45){
-             MC_StopMotor1();
-             MC_Clear_IqdrefMotor1();
-             ss.cc_ramp = CC_RAMPOFF;
-             ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
-             
-             FDCAN_SendControlledBrakeMsg();
-             ss.brakeState++;
-             FDCAN_SendPCMAckMsg(1);
-             b.brakeCounter++;
-            }
-          }
+      if (ss.travelledDist >= ss.brakeDistance){ //should not be more than 60
+        ss.engageBrake = 1;
+      }
     }
     
-    if (b.brakeCounter== 1){
-      if (ss.travelledDist >= 55){
-         MC_StopMotor1();
-         MC_Clear_IqdrefMotor1();
-         ss.cc_ramp = CC_RAMPOFF;
-         ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
-         
-         FDCAN_SendControlledBrakeMsg();
-         ss.brakeState++;
-         FDCAN_SendPCMAckMsg(1);
-         b.brakeCounter++;
+    if (ss.engageBrake == 1){
+        if (b.brakeCounter == 0){
+           TMCM_SpeedLoop_TurnOff();
+           FDCAN_SendControlledBrakeMsg();
+          // t1 = HAL_GetTick();
+           ss.brakeState++;
+           b.brakeCounter++;
+           ss.engageBrake = 0;
+           ss.cc_ramp = CC_RAMPOFF;
+           ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
+           FDCAN_SendPCMAckMsg(1); 
+        }       
+        /*if (b.brakeCounter == 1){
+          if (HAL_GetTick() - t1 >= 1000){
+           FDCAN_SendControlledBrakeMsg();
+           ss.brakeState++;
+           b.brakeCounter++;
+           ss.engageBrake = 0;
+           ss.cc_ramp = CC_RAMPOFF;
+           ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
+           FDCAN_SendPCMAckMsg(1);    
         }
+      }*/
+    }
+    
+    if (ss.travelledDist >= 55){ //hardocded to 55
+       TMCM_SpeedLoop_TurnOff(); 
+       ss.cc_ramp = CC_RAMPOFF;
+       ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
+       
+       FDCAN_SendSlamBrakeMsg();
+       ss.brakeState++;
+       b.brakeCounter++;
+       FDCAN_SendPCMAckMsg(1);
       }
-      
-    
-    
+  
+       
     /*if (testDirError){
         MC_ProgramTorqueRampMotor1(10, 300 ); //10/8936 * 35 ~  0.04RMS
         MC_StartMotor1();
@@ -486,25 +525,23 @@ int main(void)
         testDirError = 0;
      }*/
     
-    
       //Starting Seq
-      if (ssq.PCM_startCommand == 1){
-          ssqErrorState = ExecStartSeq(&ssq,&ss);
-          if (ssqErrorState != NO_ERROR){
-            ssq.globalStartSeqTimer = 0;
-            ss.CustomFaults = CC_START_SEQ_FAIL;
-            ss.cc_state = CC_ERROR;
-          }
-      }
+    if (ssq.PCM_startCommand == 1){
+        ssqErrorState = ExecStartSeq(&ssq,&ss);
+        if (ssqErrorState != NO_ERROR){
+          ssq.globalStartSeqTimer = 0;
+          ss.CustomFaults = CC_START_SEQ_FAIL;
+          ss.cc_state = CC_ERROR;
+        }
+    }
     
     if (resetStartSeq){
        resetStartSeqParams( &ssq);
        resetStartSeqErrorState( &ssq);
        resetStartSeq = 0;
-    }
+    } 
     
-      if (ss.cc_state == CC_RUNNING){
-        
+    if (ss.cc_state == CC_RUNNING){  
         //delta RPM of 100
         deltaRPM = ss.targetRPM - ss.currentAbsRpm;
         if (deltaRPM < 0){deltaRPM = -deltaRPM;}
@@ -518,7 +555,6 @@ int main(void)
             ss.cc_state = CC_ERROR;
             ss.CustomFaults = CC_OVC_STALL;
         } */
-        
         
        /* while moving, if you detect motion in the opp direction , turn off*/
        startEncoderChecking(&encFlts,ss.currentAbsRpm);
@@ -542,21 +578,16 @@ int main(void)
     }
         
     if (ss.cc_state == CC_ERROR){ // turn off. running this continously prevents any other command from restarting the motor.
-        MC_StopMotor1();
-        MC_Clear_IqdrefMotor1();
-        //maybe do mech braking here also
+        TMCM_SpeedLoop_TurnOff(); 
+       // ss.engageBrake =1; //do mech braking here also
         ccT.timerOnBool = 0;
-        FDCAN_TMCM_StopFrame(ss.CustomFaults);  //send a STOP CAN msg to the PCM
         ss.cc_ramp = CC_RAMPOFF;
         ss.runType=NO_RUN;
         ssq.PCM_startCommand = 0;
-        
-        cc_stopMsg_oneTime = 1;
     }
           
     if (cc_turnOff){ // used in CC, to turn off at 30 rpm during descent
-      MC_StopMotor1();
-      MC_Clear_IqdrefMotor1();
+      TMCM_SpeedLoop_TurnOff(); 
       ss.cc_ramp = CC_RAMPOFF;
       ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
       ss.runType=NO_RUN;
@@ -601,8 +632,7 @@ int main(void)
   } // closes st_calib on
     
     if (st_calib_off){
-      MC_StopMotor1();
-      MC_Clear_IqdrefMotor1();
+      TMCM_SpeedLoop_TurnOff(); 
       st_calib_on = 0;
       st_calib_off = 0;
     }
@@ -1503,15 +1533,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
       if(st_calib_on){st_increment=1;st_counter++;} // for stiction torque calibration
     }
    
-   // FDCAN_runtimedataFromMotor();
-    if (stopCAN==0){
-      //if index has not changed dont send.
-      //FDCAN_CC_TMCM_log();
-     /* if (ss.cc_state != CC_RUNNING){
-        FDCAN_CC_TMCM_sendRunTimeData();
-      }*/
+      //KEEP SENDING DATA
+      FDCAN_CC_TMCM_sendRunTimeData();
       FDCAN_CC_TMCM_sendStatusData();
-    }
+      if (ss.cc_state == CC_ERROR){
+        FDCAN_TMCM_StopFrame(ss.CustomFaults);
+      }
   }
   
 }

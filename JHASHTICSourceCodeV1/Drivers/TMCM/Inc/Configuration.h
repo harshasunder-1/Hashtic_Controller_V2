@@ -19,6 +19,7 @@
 #define MOTOR7 7
 #define MOTOR8 8
 #define MOTOR9 9
+#define MOTOR10 10
 
 #define MOTOR1_ZERO_POS 2586
 #define MOTOR2_ZERO_POS 3721

@@ -31,6 +31,7 @@ typedef struct{
   runType runType;
   int8_t direction;
   int16_t targetRPM;
+  uint16_t brakeDistance;
    
   uint16_t indexID;
   cc_state_t cc_state ; //continuous control state
@@ -38,7 +39,9 @@ typedef struct{
   int16_t currentRPM;
   uint16_t currentAbsRpm;
   uint16_t iqRef;
-  uint8_t brakeState;
+  int8_t brakeState;
+  uint8_t engageBrake;
+
   float travelledDist;
 
   int16_t phaseVoltageRMS;
@@ -50,6 +53,7 @@ typedef struct{
   uint8_t MCSDK_PreFault;
   uint8_t MCSDK_CurrentFault;
   CustomErrors CustomFaults;
+  uint8_t neverStarting;
   
 }systemState;
 
@@ -62,14 +66,14 @@ typedef struct {
 
 typedef struct{
   uint8_t brakeOneTime;
-  uint16_t thresholdBrake1;
-  uint16_t thresholdBrake2;
   uint8_t brakeCounter;
+  uint32_t brakeTime1;
 }brakeCtrl;
 
 
 
 uint8_t CheckPodState(systemState *ss);
 void updateTMCMState(systemState *ss);
+uint8_t TMCM_SpeedLoop_TurnOff(void);
 
 #endif
