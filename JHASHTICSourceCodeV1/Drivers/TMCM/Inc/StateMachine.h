@@ -7,7 +7,8 @@
 
 typedef enum {
   CC_IDLE,
-  CC_RUNNING,
+  CC_RUNNING_CL,
+  CC_RUNNING_OL,
   CC_ERROR,
 }cc_state_t;
 
@@ -29,9 +30,10 @@ typedef enum {
 typedef struct{
 
   runType runType;
-  int8_t direction;
+  int8_t podDirection;
   int16_t targetRPM;
   uint16_t brakeDistance;
+  int8_t motorDirection; 
    
   uint16_t indexID;
   cc_state_t cc_state ; //continuous control state

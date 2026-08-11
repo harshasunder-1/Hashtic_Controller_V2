@@ -1537,6 +1537,18 @@
             </file>
         </group>
         <group>
+            <name>EmulatedEeprom</name>
+            <file>
+                <name>$PROJ_DIR$\..\Drivers\EEPROM\Src\eeprom_emul.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Drivers\EEPROM\Src\flash_interface.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Drivers\EEPROM\Src\motor_config.c</name>
+            </file>
+        </group>
+        <group>
             <name>STM32G4xx_HAL_Driver</name>
             <file>
                 <name>$PROJ_DIR$\..\Drivers\STM32G4xx_HAL_Driver\Src\stm32g4xx_hal.c</name>
@@ -1636,9 +1648,6 @@
             </file>
             <file>
                 <name>$PROJ_DIR$\..\Drivers\TMCM\Src\PRECHARGE.c</name>
-            </file>
-            <file>
-                <name>$PROJ_DIR$\..\Drivers\TMCM\Src\Ramp.c</name>
             </file>
             <file>
                 <name>$PROJ_DIR$\..\Drivers\TMCM\Src\StartSequence.c</name>

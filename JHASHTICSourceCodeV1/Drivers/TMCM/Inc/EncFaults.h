@@ -25,5 +25,6 @@ void EnableEncoderFltChking(EncFaults *e);
 void ResetEncFaults(EncFaults *e);
 void startEncoderChecking(EncFaults *e,uint16_t absRPM);
 void stopEncoderChecking(EncFaults *e,uint16_t absRPM);
+void DisableEncoderFltChking(EncFaults *e);
 
 #endif

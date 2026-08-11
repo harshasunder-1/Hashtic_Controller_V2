@@ -137,16 +137,18 @@ F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\JHASHTICSourceCodeV1\
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\AS5x47P\EncoderFns.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\AS5x47P\AS5x47P.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\FDCAN.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\PRECHARGE.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\Ramp.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Inc\mc_interface.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Inc\mc_api.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\ControlFns.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\StateMachine.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\TemperatureLogic.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\StateMachine.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\Configuration.h \
+  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\ControlFns.h \
+  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\StateMachine.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\EncFaults.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\States.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\TemperatureLogic.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\StartSequence.h
+  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\StartSequence.h \
+  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\..\..\Hashtic_Controller_EEEPROM\JHASHTICSourceCodeV1\Drivers\EEEPROM\Inc\motor_config.h \
+  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\..\..\Hashtic_Controller_EEEPROM\JHASHTICSourceCodeV1\Drivers\EEEPROM\Inc\eeprom_emul.h \
+  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\..\..\Hashtic_Controller_EEEPROM\JHASHTICSourceCodeV1\Drivers\EEEPROM\Inc\eeprom_emul_conf.h \
+  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\..\..\Hashtic_Controller_EEEPROM\JHASHTICSourceCodeV1\Drivers\EEEPROM\Inc\eeprom_emul_types.h \
+  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\..\..\Hashtic_Controller_EEEPROM\JHASHTICSourceCodeV1\Drivers\EEEPROM\Inc\flash_interface.h \
+  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\STM32G4xx_HAL_Driver\Inc\stm32g4xx_ll_crc.h

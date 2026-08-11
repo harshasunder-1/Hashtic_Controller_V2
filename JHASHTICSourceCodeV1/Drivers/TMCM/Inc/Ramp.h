@@ -15,8 +15,6 @@
 #define RAMPDOWN_TIME 6000 // CANT BE -ve. HAS TO BE SET CORRECTLY , so that from setRPM to 100 doesnt require large braking, set in ms!
 #define START_TIME_THRESHOLD_S 5 
 #define RPM_CLOSEDLOOP_THRESHOLD 100
-#define RPM_CLOSED_LOOP_THRESHOLD_CC 1500
-
 
 typedef struct{
   uint8_t overallTimer;

@@ -29,14 +29,14 @@
 #include "AS5x47P.h"
 #include "EncoderFns.h"
 #include "FDCAN.h"
-#include "PRECHARGE.h"
-#include "Ramp.h"
 #include "TemperatureLogic.h"
 #include "StateMachine.h"
 #include "Configuration.h"
+#include "ControlFns.h"
 #include "EncFaults.h"
 #include "States.h"
 #include "StartSequence.h"
+#include "motor_config.h"
 
 /* USER CODE END Includes */
 
@@ -55,7 +55,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-PrechargeVariables pcv;
 
 Temp t;
 CAN_SS_Input canSSIp;
@@ -68,13 +67,18 @@ laptopContinuousControl lcc;
 EncFaults encFlts;
 startSeq ssq;
 brakeCtrl b;
-
-//all declared in Ramp.c
-extern RampingOperation RampOp;
-extern RampState rampstate;
+EEConfig eecfg;
 
 extern FOCVars_t FOCVars[1];
 extern int16_t hTargetSpeedUserDefined;
+
+ // var for eeprom 
+extern uint32_t motorID;
+extern int32_t signForCWRotation;
+extern int32_t positionInPod;
+
+
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -138,7 +142,6 @@ extern float k;
 extern uint8_t CircleLimitationState;
 
 uint8_t cc_turnOff = 0,triggerFault =0,nvicReset=0;
-uint8_t sendData, PCOn,turnOffMotor;
 int16_t deltaRPM = 0, rpmError = 0;
 FDCAN_RxHeaderTypeDef   RxHeader;
 uint8_t RxData[8];
@@ -154,7 +157,7 @@ int16_t spiRaw = 0 ;
 uint8_t triggerSPIAngleReading = 0;
 float ABI_elAngle = 0,spi_elAngle=0,deltaAngles=0,encFault_deltaAngle=0,encFault_spiAngle=0;
 uint8_t encFaultCounter = 0,testDirError = 0,resetCustomFaults=0,spi_FailCount = 0;
-uint8_t ssqErrorState = 0,resetStartSeq=0,turnOffOK=0;
+uint8_t ssqErrorState = 0,resetStartSeq=0,dbgAppyRegen=0;
 State_t start_state;
 uint32_t t1=0;
 extern MCI_Handle_t * pMCI[NBR_OF_MOTORS];
@@ -211,6 +214,11 @@ int main(void)
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
   
+  HAL_GPIO_WritePin(PRECHARGE_GPIO_Port,PRECHARGE_Pin,GPIO_PIN_RESET);
+  HAL_Delay(200);
+  MC_AcknowledgeFaultMotor1();
+  HAL_Delay(200);
+  
   //set up interrupts for TIM2 encoder
   __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_DIR);
   __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_IERR);
@@ -226,70 +234,93 @@ int main(void)
   t.motorHandler=InitializeADC(&Motor_ADC,ADC1,2,ADC_SAMPLETIME_6CYCLES_5);
   t.mosfetHandler=InitializeADC(&MOSFET_ADC,ADC1,3,ADC_SAMPLETIME_6CYCLES_5);
   
-  //Load Motor ID from Eeprom.(Find out how to do this in G4)
-  //check if within Range, both readings are same.
-  //get encoder ID from hardcoded nos in a file
-  //write the zero position and check
- 
   ss.CustomFaults = NO_FAULTS;
-  c.motorID = 5;    //motor 5 left side pod4      pod2 motor9 Right side    pod3 motor3 RightSide
-  c.positionInPod = LEFT_SIDE;
-  
-  /* TO DO
+  ss.cc_state = CC_IDLE;
+   
+  /********************* motor id verification from EEPROM ***************************/
+  //Load Motor ID from Eeprom.(Find out how to do this in G4)
+  //sign for CW = -1 means, motor shaft rotates counter clockwise when Iq is +ve
+  //check if within Range, both readings are same.
+    /* 
   | LEFT_SIDE  | sign for CW = 1  | Iq = +ve for FWD DIRECTION |REGEN -ve for FWD DIRECTION
-  | LEFT SIDE  | sign for CW = -1 | Iq = -ve for FWD DIRECTION |
+  | LEFT SIDE  | sign for CW = -1 | Iq = -ve for FWD DIRECTION |REGEN +ve for FWD DIRECTION
   | RIGHT_SIDE | sign for CW = 1  | Iq = -ve for FWD DIRECTION |REGEN +ve for FWD DIRECTION
   | RIGHT_SIDE | sign for CW = -1 | Iq = +ve for FWD DIRECTION |
-  REGEN AND START_SEQ_IQ have to be set correctly.
-  */
-  c.signForCWRotation = 1;   
-  if (c.signForCWRotation == -1){
-    PIDSpeedHandle_M1.hKpGain *= -1;
-    PIDSpeedHandle_M1.hKiGain *= -1;
-  }
+  REGEN AND START_SEQ_IQ have to be set correctly
   
-  int16_t response = getMotorIndexFromMotorID(c.motorID);
-  if (response != -1){
-    c.zeroPos = response;
-    c.EncoderZeroPosLoaded = updateEncoderZeroPosition(c.zeroPos);
-    c.EncoderABIConfigLoaded = setupMotorEncoder_inABI_Mode(); 
-    if (c.EncoderABIConfigLoaded == 0){ // this fault only comes during starting.
-      ss.CustomFaults = ENCODER_INDEX_LOAD_FAIL; //If this fails, we dont let the machine to start
+  POD 5, motor6,signForCW= -1,RIGHT_SIDE
+  POD 2,motor5,signForCW= 1,LEFT_SIDE
+  POD 4,
+  */
+  
+  MotorConfig_Init();
+  //Uncomment only once when programming a new inverter motor pair 
+  //MotorConfig_Write(5, 1, LEFT_SIDE);  // (motor ID, signforCW,positioninPod,
+  
+  if (MotorConfig_Read(&eecfg) == EE_OK){  //TODO : use uint8 or 16 bit read/write functions inside motorConfig
+    if (CheckEEConfigValues(&eecfg) == EEPROM_VALUES_OK){
+      c.motorID = eecfg.motorID;
+      c.signForCWRotation = eecfg.signforCW;
+      c.positionInPod = eecfg.positionInPod;
+    }else{
+      ss.CustomFaults = BAD_EEPROM_VALUES;
       ss.cc_state = CC_ERROR;
     }
   }else{
-    ss.CustomFaults = BAD_MOTOR_INDEX;
+    ss.CustomFaults = EEPROM_READING_ERR;
     ss.cc_state = CC_ERROR;
   }
-  // Above faults have to be latched faults, we shouldnt be able to remove them 
-  // by pressing the precharge button
   
-  InitializeEncFaults(&encFlts);
-  initializeStartSeqParams(&ssq);
   
-  pcv.Precharge_Stage = PRECHARGE_OFF; // Initialization of Precharge Statemachine
-  CircleLimitationState = 0;
-  rampstate = MOTOR_OFF;
+  /********************************************/
   
-  ss.runType = NO_RUN;
+  if (ss.cc_state == CC_IDLE){ // if no errors use values read to setup inverter
+    
+      if (c.signForCWRotation == -1){
+        PIDSpeedHandle_M1.hKpGain *= -1;
+        PIDSpeedHandle_M1.hKiGain *= -1;
+      }
   
-  ss.cc_state = CC_IDLE;
-  ss.cc_ramp = CC_RAMPOFF;
+      int16_t response = getMotorIndexFromMotorID(c.motorID);
+      if (response != -1){
+          c.zeroPos = response;
+          c.EncoderZeroPosLoaded = updateEncoderZeroPosition(c.zeroPos);
+          c.EncoderABIConfigLoaded = setupMotorEncoder_inABI_Mode(); 
+          if (c.EncoderABIConfigLoaded == 0){ // this fault only comes during starting.
+              ss.CustomFaults = ENCODER_INDEX_LOAD_FAIL; //If this fails, we dont let the machine to start
+              ss.cc_state = CC_ERROR;
+            }
+      }else{
+          ss.CustomFaults = BAD_MOTOR_INDEX;
+          ss.cc_state = CC_ERROR;
+      }
+   }
+    
+  if (ss.cc_state == CC_IDLE){
+    InitializeEncFaults(&encFlts);
+    initializeStartSeqParams(&ssq);
+    
+    CircleLimitationState = 0;
+    
+    ss.runType = NO_RUN;
+    ss.cc_state = CC_IDLE;
+    ss.cc_ramp = CC_RAMPOFF;
 
-  ccT.PCM_timer_thresh = 6;
-  cc_stopMsg_oneTime = 0;
-  
- //Wait till State goes to IDLE. The turn the motor on and off , so that the ABI and SPI sensors synchronize.
-  start_state = MC_GetSTMStateMotor1();
-  if (start_state == IDLE){
-    MC_ProgramSpeedRampMotor1(0, 300 ); //10/8936 * 35 ~  0.04RMS
-    MC_StartMotor1();
-    HAL_Delay(1000);
-    TMCM_SpeedLoop_TurnOff();
-  }else{
-    //SEE the MCSDK fault
-    ss.CustomFaults = START_IDLE_NOT_REACHED;
-    ss.cc_state = CC_ERROR;
+    ccT.PCM_timer_thresh = 6;
+    cc_stopMsg_oneTime = 0;
+    
+   //Wait till State goes to IDLE. The turn the motor on and off , so that the ABI and SPI sensors synchronize.
+    start_state = MC_GetSTMStateMotor1();
+    if (start_state == IDLE){
+      MC_ProgramSpeedRampMotor1(0, 300 ); //10/8936 * 35 ~  0.04RMS
+      MC_StartMotor1();
+      HAL_Delay(1000);
+      TMCM_SpeedLoop_TurnOff();
+    }else{
+      //SEE the MCSDK fault
+      ss.CustomFaults = START_IDLE_NOT_REACHED;
+      ss.cc_state = CC_ERROR;
+    }
   }
   
   if (ss.cc_state == CC_ERROR){
@@ -299,7 +330,7 @@ int main(void)
       HAL_Delay(1000);
     }
   }
-
+ 
   // TODO: we also want to check temperature here and see if it is available, and also if its within limits when starting.
   // TODO: How do we check Encoder health during running?-DONE
   // TODO : check voltage, if voltage not there, throw error and send codes. Need to handle MCSDK errors properly, only custom errors 
@@ -319,7 +350,6 @@ int main(void)
     ReadTemperatureADC(&t,MOSFET_TEMP);
     ProcessTemperatureADCs(&t);
     updateTMCMState(&ss); //voltage
-    PrechargingLogic();
     
     if(resetCustomFaults){
       ss.cc_state =CC_IDLE;
@@ -327,76 +357,7 @@ int main(void)
       resetCustomFaults = 0;
     }
     
-    //----------manual running with a ramp --------------------
-    if(lc.start==1){
-      laptopRun(&lc,&ss);
-      ResetEncFaults(&encFlts);
-      ss.runType=LSS;
-      lc.start = 0;
-    }
-    
-    if (lc.stop == 1){
-      laptopStop(&lc,&ss);
-      ss.runType=NO_RUN;
-      lc.stop = 0;
-    }
-    
-    if (lc.changeRPM == 1){
-      laptopChangeRPM(&lc);
-      lc.changeRPM = 0;
-    }
-    
-    Ramping(&ss);
-    OverallTimerTurnOff(&ss);
-    
-     //if during ramp up circle limitation fires, we wont be able to reach the target speed. so switch to ramp Steady.
-    // could also break out with warning..
-    if(CircleLimitationState == 1 && rampstate == RAMPING_UP){
-        rampstate = STEADY_STATE;
-        RampOp.steadyStateElapsedTime = 0;
-        RampOp.startSteadyStateTimerBool = 1;
-    }
-      
-    // These need to be tuned for the vehicle.. So we could say 
-    // 1) if the vehicle doesnt start by the time ramp is over , stop.
-    // 2) by the time ramp is over, if the actual rpm is not more than 1/3 the  steady state rpm
-    // 3) only check the delta RPM in the steady state, not during rampup.
-    //during start up , if u havent started rotating in the first X sec, turn off.
-    if (rampstate == RAMPING_UP){
-      if (RampOp.overallTimer >= START_TIME_THRESHOLD_S && ss.currentAbsRpm < 5){
-      //cutoff with some ERROR
-        ss.CustomFaults = START_TIME_OVF;
-        turnOffMotor = 1;
-      }
-      
-    // handling case where we dont reach steady state from ramp up.
-    // if overallTime > 2.5 * rampup time, and we still havent reached steady state, turn off.
-      if (RampOp.overallTimer >= RampOp.rampUpTime/1000 * 3.0f){//make 3 later
-        ss.CustomFaults = RAMPTIME_TOO_LONG;
-        turnOffMotor = 1;
-      }
-    }
-  
-  // in steady state if error byw target and actual > 100, turn off
-    if (rampstate == STEADY_STATE){       
-      deltaRPM = hTargetSpeedUserDefined - ss.currentRPM;
-      if (deltaRPM < 0){deltaRPM = -deltaRPM;}
-      if( deltaRPM > RPM_CLOSEDLOOP_THRESHOLD){
-        ss.CustomFaults = CLOSED_LOOP_ERR;
-        rpmError  = deltaRPM;
-        turnOffMotor = 1;
-      }
-    }
-    
-    if (turnOffMotor == 1){
-        TMCM_SpeedLoop_TurnOff();        
-        RampTurnOff();
-        hTargetSpeedUserDefined=0;
-        FDCAN_TMCM_StopFrame(ss.CustomFaults);
-        ss.runType=NO_RUN;
-        turnOffMotor = 0;
-    }
-    
+
     //----------------------------------------------
      // Happens for all types of run all the time.
     //Stop if SPI and ABI dont have the same reading.
@@ -433,11 +394,18 @@ int main(void)
     //manual continous running from an array
     if (lcc.start){
       laptopCC_on(&lcc);
-      ss.direction = lcc.direction;
-      ss.cc_state = CC_RUNNING;
+      ss.podDirection = lcc.direction;
+      if (c.signForCWRotation == 1){
+        ss.motorDirection = ss.podDirection * c.signForCWRotation;
+      }else{
+         ss.motorDirection = ss.podDirection;
+      }
+      
+      ss.cc_state = CC_RUNNING_CL;
       ss.cc_ramp = CC_RAMPUP;
       ss.runType=LCC;
       ss.travelledDist=0;
+      DisableEncoderFltChking(&encFlts);
       ResetEncFaults(&encFlts);
       EnableEncoderFltChking(&encFlts);
       lcc.start = 0;
@@ -489,20 +457,10 @@ int main(void)
            ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
            FDCAN_SendPCMAckMsg(1); 
         }       
-        /*if (b.brakeCounter == 1){
-          if (HAL_GetTick() - t1 >= 1000){
-           FDCAN_SendControlledBrakeMsg();
-           ss.brakeState++;
-           b.brakeCounter++;
-           ss.engageBrake = 0;
-           ss.cc_ramp = CC_RAMPOFF;
-           ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
-           FDCAN_SendPCMAckMsg(1);    
-        }
-      }*/
     }
     
-    if (ss.travelledDist >= 55){ //hardocded to 55
+    if (ss.cc_state == CC_RUNNING_CL || ss.cc_state == CC_RUNNING_OL){
+      if (ss.travelledDist >= 55){ //hardocded to 55- in all operating modes, including LCC
        TMCM_SpeedLoop_TurnOff(); 
        ss.cc_ramp = CC_RAMPOFF;
        ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
@@ -512,18 +470,7 @@ int main(void)
        b.brakeCounter++;
        FDCAN_SendPCMAckMsg(1);
       }
-  
-       
-    /*if (testDirError){
-        MC_ProgramTorqueRampMotor1(10, 300 ); //10/8936 * 35 ~  0.04RMS
-        MC_StartMotor1();
-        
-        ss.cc_state_t = CC_RUNNING;
-        ResetEncFaults(&encFlts);
-        EnableEncoderFltChking(&encFlts);
-      
-        testDirError = 0;
-     }*/
+    }
     
       //Starting Seq
     if (ssq.PCM_startCommand == 1){
@@ -541,7 +488,7 @@ int main(void)
        resetStartSeq = 0;
     } 
     
-    if (ss.cc_state == CC_RUNNING){  
+    if (ss.cc_state == CC_RUNNING_CL){  
         //delta RPM of 100
         deltaRPM = ss.targetRPM - ss.currentAbsRpm;
         if (deltaRPM < 0){deltaRPM = -deltaRPM;}
@@ -573,8 +520,21 @@ int main(void)
            }
            else{}
         }
-       } 
+       }    
+    }
        
+    if (dbgAppyRegen){
+      applyRegen(ss.motorDirection);
+      ss.cc_ramp = CC_RAMPDOWN;  //whenever we regen we have to put state as cc_rampdown and state as running ol
+      ss.cc_state = CC_RUNNING_OL;
+      dbgAppyRegen = 0;
+    }
+    
+    //turn off during Regen
+    if (ss.cc_state == CC_RUNNING_OL){
+      if (ss.currentAbsRpm < 100){
+        cc_turnOff = 1;
+      }
     }
         
     if (ss.cc_state == CC_ERROR){ // turn off. running this continously prevents any other command from restarting the motor.
@@ -583,18 +543,22 @@ int main(void)
         ccT.timerOnBool = 0;
         ss.cc_ramp = CC_RAMPOFF;
         ss.runType=NO_RUN;
+        DisableEncoderFltChking(&encFlts);
         ssq.PCM_startCommand = 0;
     }
           
-    if (cc_turnOff){ // used in CC, to turn off at 30 rpm during descent
+    if (cc_turnOff){ // used everywhere to turn off correctly
       TMCM_SpeedLoop_TurnOff(); 
       ss.cc_ramp = CC_RAMPOFF;
       ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
       ss.runType=NO_RUN;
       hTargetSpeedUserDefined=0;
+      DisableEncoderFltChking(&encFlts);
       FDCAN_SendPCMAckMsg(1);
       cc_turnOff = 0;
     }
+
+    
     
     if(nvicReset){
        HAL_NVIC_SystemReset();
@@ -1527,9 +1491,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     
 
     if(_100ms_counter%10 == 0){
-      if(pcv.startCount == 1){pcv.tim17_1sec_precharge++;}
-      if(RampOp.start_overallTimerBool == 1){RampOp.overallTimer++;} // This should be ON for the entire TOTAL_RUNTIME_SEC
-      if(RampOp.startSteadyStateTimerBool == 1){RampOp.steadyStateElapsedTime++;} // This will indicate that the Steady State has Started 
       if(st_calib_on){st_increment=1;st_counter++;} // for stiction torque calibration
     }
    

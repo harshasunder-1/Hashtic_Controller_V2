@@ -174,7 +174,7 @@ ReadDataFrame readdataframe;
 int16_t ENC_getRawReadingFromSPI(void){
   Angle angle;
   uint16_t angleData=0;
-
+  readdataframe.raw  = 0;
   readdataframe.raw = AS5047_SPI_Read(ANGLE_READ_FRAME,0);//AS5047_readRegister(ANGLE_REG,1);
   if (readdataframe.values.ef == 1){
     return -1;

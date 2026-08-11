@@ -1,10 +1,8 @@
 #include "ControlFns.h"
 #include "mc_api.h"
-#include "Ramp.h"
 
 extern float k;
 extern uint8_t CircleLimitationState;
-extern RampingOperation RampOp;
 
 //lookup table for continuous control to work from 
 //0,0,0,0,0,0,0,0,1,1,1,2,2,3,3,4,4,5,5,6,7,8,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,25,26,27,29,30,31,33,34,
@@ -33,59 +31,10 @@ const uint16_t CONTINOUS_RPMS[701]={30,30,30,30,30,30,30,30,30,30,31,31,31,31,31
 //MotorControl Functions
 void applyRegen(int currentDirection){
   if(currentDirection == 1){  //change this later..make it cleaner, direction from outside?
-      MC_ProgramTorqueRampMotor1(-ONE_SHOT_REGEN_FIXED_IQ, 1000 ); //for pod9, +ve
+      MC_ProgramTorqueRampMotor1(-ONE_SHOT_REGEN_FIXED_IQ, 1000 ); 
     }else{
       MC_ProgramTorqueRampMotor1(ONE_SHOT_REGEN_FIXED_IQ, 1000 );
     }
-}
-
-void laptopRun(laptopControl *lc,systemState *ss){
-  uint16_t absTarget = 0;
-  
-  if (lc->targetRPM < 0){
-    absTarget = -lc->targetRPM;
-  }else{
-    absTarget = lc->targetRPM ; 
-  }
-   
-  uint8_t speedRPM_OK = 0,rampUpTime_OK = 0,IsPodStopped=0,isMotorEncoderNOK=0;
-   
-  if ((absTarget > 100) && (absTarget < 2000)){
-    speedRPM_OK = 1;
-  }
-    
-  float rampTemp = (float)absTarget /lc->rampUpTime;
-  if(rampTemp <=0.15f && rampTemp > 0.015f){ //min ramptime = 2s , max ramptime = 20s
-    rampUpTime_OK = 1;
-  }
-    
-  if(ss->currentAbsRpm < 5){IsPodStopped = 1;} // only allow start if pod is stopped.
-  if(ss->CustomFaults == ENCODER_INDEX_LOAD_FAIL){isMotorEncoderNOK = 1;}
-  if(ss->CustomFaults == BAD_MOTOR_INDEX){isMotorEncoderNOK = 1;}
-  
-  if (speedRPM_OK==1 && rampUpTime_OK==1 && IsPodStopped==1 && isMotorEncoderNOK==0){
-      //reset circle limitation
-      k = 10;CircleLimitationState = 0;
-      
-      ss->targetRPM = lc->targetRPM; 
-      if (ss->targetRPM > 0){ss->direction = 1;}else{ss->direction = -1;}
-      RampOp.steadyStateTime_s = lc->steadyStateTime*0.001; 
-      RampOp.rampUpTime = lc->rampUpTime;
-      
-      MC_ProgramSpeedRampMotor1(ss->targetRPM/6, lc->rampUpTime);
-      MC_StartMotor1();
-      StartRamps();
-    } 
-} 
-
-void laptopStop(laptopControl *lc,systemState *ss){
-    ss->targetRPM=0;
-    TMCM_SpeedLoop_TurnOff();
-    RampTurnOff();
-}
-
-void laptopChangeRPM(laptopControl *lc){
-    MC_ProgramSpeedRampMotor1(lc->targetRPM/6, lc->changeRPMTime);
 }
 
 
@@ -94,6 +43,10 @@ void laptopCC_on(laptopContinuousControl *lcc){
     if (lcc->direction == 0){
       lcc->direction = 1;
     }
+    if(lcc->maxRPM == 0){
+      lcc->maxRPM = 600;
+    }
+    
     lcc->stopIdx = 700;
     MC_ProgramSpeedRampMotor1(0,10);
     MC_StartMotor1();
@@ -106,9 +59,14 @@ void laptopCC_increment(laptopContinuousControl *lcc,systemState *ss){
     TMCM_SpeedLoop_TurnOff();
     lcc->timerOn_bool = 0;
   }else{
-    lcc->target = CONTINOUS_RPMS[lcc->idx] ;
+    lcc->target = CONTINOUS_RPMS[lcc->idx];
    
-    MC_ProgramSpeedRampMotor1(lcc->target/6 * lcc->direction,10);
+    //to arbitrarily limit the speed
+    if (lcc->target >= lcc->maxRPM){
+      lcc->target = lcc->maxRPM;
+    }
+   
+    MC_ProgramSpeedRampMotor1(lcc->target/6 * ss->motorDirection,10);
   }
 }
 

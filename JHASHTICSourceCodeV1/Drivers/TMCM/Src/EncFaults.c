@@ -15,6 +15,11 @@ void ResetEncFaults(EncFaults *e){
     e->EncoderErrFlag = 0;
 }
 
+void DisableEncoderFltChking(EncFaults *e){
+  e->encoderCheckingOn = 0;
+  e->encoderChkBool= 0;
+}
+
 
 void EnableEncoderFltChking(EncFaults *e){
   e->encoderCheckingOn = 0;

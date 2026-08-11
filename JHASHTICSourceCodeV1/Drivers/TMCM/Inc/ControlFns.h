@@ -21,6 +21,7 @@ typedef struct {
   int16_t target;
   int16_t direction;
   uint16_t stopIdx;
+  uint16_t maxRPM;
    
   uint8_t start;
   uint8_t stop;
@@ -29,7 +30,7 @@ typedef struct {
 }laptopContinuousControl;
 
 #define ONE_SHOT_REGEN_FIXED_IQ 500
-
+#define RPM_CLOSED_LOOP_THRESHOLD_CC 200
 
 void applyRegen(int currentDirection);
 void laptopRun(laptopControl *lc,systemState *ss);

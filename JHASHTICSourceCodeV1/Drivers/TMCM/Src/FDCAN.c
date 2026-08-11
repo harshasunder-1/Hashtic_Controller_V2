@@ -9,7 +9,6 @@
 #include "mc_type.h"
 #include "motorcontrol.h"
 #include "PRECHARGE.h"
-#include "Ramp.h"
 #include "StateMachine.h"
 #include "ControlFns.h"
 #include "TemperatureLogic.h"
@@ -18,8 +17,6 @@
 #include "StartSequence.h"
 #include <stdlib.h>
 
-extern RampingOperation RampOp;
-extern RampState rampstate;
 extern FDCAN_HandleTypeDef hfdcan2;
 extern FOCVars_t FOCVars[1];
 extern systemState ss;
@@ -314,6 +311,7 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
   functionID=((RxHeader.Identifier)&0xFF0000)>>16;
   source_address=(RxHeader.Identifier)&0xFF;
   
+
   switch (functionID) {
     
   case MOTORSTATE_FUNCTIONID:
@@ -366,19 +364,16 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
     
     else if (canSSIp.motorAction == SS_STOP_REGEN){
       // stop motor with regen braking
-      applyRegen(ss.direction);
-      rampstate = RAMPING_DOWN;
-      RampOp.startSteadyStateTimerBool =0; //stop steady state timer
-      RampOp.steadyStateElapsedTime = 0;
-      ss.cc_ramp = CC_RAMPOFF;
-      ss.runType=NO_RUN;
+      applyRegen(ss.motorDirection); 
+      ss.cc_ramp = CC_RAMPDOWN;  //whenever we regen we have to put state as cc_rampdown, and set cc_State as runingOL
+      ss.cc_state = CC_RUNNING_OL;
       FDCAN_SendPCMAckMsg(1);
     }
     
     else if (canSSIp.motorAction == SS_STOP_COAST_MECH_BRAKE){
       // coasting and mech braking
       cc_turnOff = 1;
-      ss.runType=NO_RUN;
+      ss.cc_ramp = CC_RAMPOFF;
       ss.brakeState++;
       FDCAN_SendControlledBrakeMsg();
       FDCAN_SendPCMAckMsg(1);
@@ -403,12 +398,10 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
     
     else if (canSSIp.motorAction == SS_REGEN_MECH_BRAKE){
       // stop motor with regen braking and mech braking
-      applyRegen(ss.direction);
-      rampstate = RAMPING_DOWN;
-      RampOp.startSteadyStateTimerBool =0; //stop steady state timer
-      RampOp.steadyStateElapsedTime = 0;
-      ss.cc_ramp = CC_RAMPOFF;
-      ss.runType=NO_RUN;
+      applyRegen(ss.motorDirection);
+      ss.cc_ramp = CC_RAMPDOWN;  //whenever we regen we have to put state as cc_rampdown and state as running ol
+      ss.cc_state = CC_RUNNING_OL;
+      
       FDCAN_SendControlledBrakeMsg();
       ss.brakeState++;
       FDCAN_SendPCMAckMsg(1);
@@ -424,8 +417,8 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
         
   case PRECHARGE_FUNCTIONID: //always make a sound
 
-    pcv.Precharge_Stage = PRECHARGE_START;
-    PCOn = RxData[0];
+    //pcv.Precharge_Stage = PRECHARGE_START;
+    //PCOn = RxData[0];
     ss.targetRPM =  0;
     ss.indexID  = 0;
     ss.brakeDistance = 0;
@@ -463,14 +456,22 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
         if (podOK && inputsOk){
           ss.indexID = 0;
           ss.targetRPM = 0;
-          if(canContIp.direction==0xFF){ // REVERSE FROM APP
-            if (c.positionInPod == LEFT_SIDE){ss.direction = -1;}
-            if (c.positionInPod == RIGHT_SIDE){ss.direction = 1;}
+          if(canContIp.direction==0xFF){ // REVERSE FROM APP     
+            if (c.positionInPod == LEFT_SIDE){ss.podDirection = -1;} // For signFor CW = 1,left side motor needs to rotate counter clockwise.
+            if (c.positionInPod == RIGHT_SIDE){ss.podDirection = 1;} // For signFor CW = 1,right side motor needs to rotate clockwise.
           }
           else if(canContIp.direction==0xAA){ // FORWARD FROM APP
-            if (c.positionInPod == LEFT_SIDE){ss.direction = 1;}
-            if (c.positionInPod == RIGHT_SIDE){ss.direction = -1;}
+            if (c.positionInPod == LEFT_SIDE){ss.podDirection = 1;}  // opposite for above
+            if (c.positionInPod == RIGHT_SIDE){ss.podDirection = -1;}
           }
+          
+          if (c.signForCWRotation == 1){
+            ss.motorDirection = ss.podDirection * c.signForCWRotation; // 
+          }else{
+             ss.motorDirection = ss.podDirection;
+          }
+          
+          
           ss.targetRPM = canContIp.controlQty;
           ss.brakeDistance = canContIp.indexID;
           
@@ -479,15 +480,15 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
           //ccT.PCM_timer = 0;
           //ccT.timerOnBool = 1;
           ss.CustomFaults = NO_FAULTS;
-          ss.cc_state = CC_RUNNING;
+          ss.cc_state = CC_RUNNING_CL;
           ss.cc_ramp = CC_RAMPUP;
           ss.runType=CC;
           ss.travelledDist = 0;
           
+          DisableEncoderFltChking(&encFlts);
           ResetEncFaults(&encFlts);
           EnableEncoderFltChking(&encFlts);
           
-          ResetEncFaults(&encFlts);
           FDCAN_SendPCMAckMsg(1);
                     
           //start the StartSeq
@@ -543,26 +544,6 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
       }
     }*/
     
-    
-    /*else if (motorAction == TURN_OFF_W_REGEN){
-      //turn OFF with fixed Regen.
-      //stop looking at any further continuous Data values
-    }
-    else if (motorAction == TURN_OFF_COASTING_W_MECHBRAKE){
-      //turn OFF and apply mech brake.
-      //stop looking at any further continuous Data values
-    }
-    else if (motorAction == ONLY_MECH_BRAKE_ENGAGE){
-      //if turned off and motor not working apply mech brake.
-      //put flag and do not allow motor to run if mech brake is engaged. 
-      //needs to move out from here.
-    }
-    else if (motorAction == ONLY_MECH_BRAKE_DISENGAGE){
-      //turn OFF and apply mech brake.
-      //stop looking at any further continuous Data values
-    }
-
-*/
 
   default:
     break;

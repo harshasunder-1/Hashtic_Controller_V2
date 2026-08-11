@@ -142,6 +142,8 @@ typedef enum {
   ENCODER_TRANSITION_ERROR = 86,
   CC_START_SEQ_FAIL = 85,
   START_IDLE_NOT_REACHED=84,
+  BAD_EEPROM_VALUES = 83,  
+  EEPROM_READING_ERR = 82,  
 } CustomErrors;
 
 /* USER CODE END Private defines */

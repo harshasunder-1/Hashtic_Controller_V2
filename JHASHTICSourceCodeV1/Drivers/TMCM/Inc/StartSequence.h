@@ -7,11 +7,11 @@
 //ON GROUND(800,2000,2400,5000,5,50,600)
 //LIFTED (500,800,1000,700,5,50,200)
 
-#define T_RAMP_DONE 800 //time to ramp up the Torque
-#define T_STALL_CHECK 2000 // time before which we should see some movement
-#define T_HANDOVER_MAX 2400 // time in which if we dont see required speed we turn off
+#define T_RAMP_DONE 500 //time to ramp up the Torque
+#define T_STALL_CHECK 800 // time before which we should see some movement
+#define T_HANDOVER_MAX 1000 // time in which if we dont see required speed we turn off
 
-#define START_TORQUE_IQ 5000//command to start the torque
+#define START_TORQUE_IQ 700//command to start the torque
 #define RPM_STALL_MIN 5 // RPM below which we consider it a stall
 #define RPM_HANDOVER 50 
 #define RPM_STEADYSTATE 200

@@ -38,7 +38,7 @@ void Ramping(systemState *ss){
   if (rampstate == STEADY_STATE){
     if(RampOp.steadyStateElapsedTime >= RampOp.steadyStateTime_s){
       // REGEN 
-      applyRegen(ss->direction);
+      applyRegen(ss->motorDirection);
       rampstate = RAMPING_DOWN;
       RampOp.startSteadyStateTimerBool =0; //stop steady state timer
       RampOp.steadyStateElapsedTime = 0;

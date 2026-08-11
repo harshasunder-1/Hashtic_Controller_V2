@@ -129,15 +129,11 @@ F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\JHASHTICSourceCodeV1\
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Inc\power_stage_parameters.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Inc\mc_api.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\PRECHARGE.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\Ramp.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Inc\mc_interface.h \
+  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\StateMachine.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Inc\main.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\STM32G4xx_HAL_Driver\Inc\stm32g4xx_ll_pwr.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Inc\mc_api.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\ControlFns.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\StateMachine.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\StateMachine.h \
-  F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\ControlFns.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\TemperatureLogic.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\Configuration.h \
   F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc\EncFaults.h \

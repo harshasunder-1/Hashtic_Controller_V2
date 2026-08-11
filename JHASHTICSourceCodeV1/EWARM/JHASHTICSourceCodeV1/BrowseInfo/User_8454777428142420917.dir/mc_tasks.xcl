@@ -35,6 +35,8 @@ F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\AS5x47P
 -I
 F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\Drivers\TMCM\Inc
 -I
+F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\EWARM\..\..\..\Hashtic_Controller_EEEPROM\JHASHTICSourceCodeV1\Drivers\EEEPROM\Inc
+-I
 C:\Program Files\IAR Systems\Embedded Workbench 9.2\arm\inc\c\aarch32
 -I
 C:\Program Files\IAR Systems\Embedded Workbench 9.2\arm\inc
@@ -64,6 +66,8 @@ F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\Drivers\CMSIS\DSP\Include
 F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\Drivers\AS5x47P
 -I
 F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\Drivers\TMCM\Inc
+-I
+F:\Harsha\Hashtic_Controller_EEEPROM\JHASHTICSourceCodeV1\Drivers\EEEPROM\Inc
 -D__CHAR_BITS__=8
 -D__CHAR_MAX__=0xff
 -D__CHAR_MIN__=0
