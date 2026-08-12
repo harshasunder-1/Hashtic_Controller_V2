@@ -23,6 +23,8 @@ float getEncoderAngleFromABI(TIM_HandleTypeDef *htim);
 float getEncoderAngleFromSPI(uint8_t continuousRead);
 uint8_t AS5047_checkEncoderHealth(void);
 uint8_t AS5047_EnableMagErrors(void);
+uint8_t AS5047_checkEncoderError(void);
+
 
 void getEncoderElectricalAngleFromSPIS(uint8_t continuousRead);
 void SectorIdentificationS(uint16_t ElAngle);

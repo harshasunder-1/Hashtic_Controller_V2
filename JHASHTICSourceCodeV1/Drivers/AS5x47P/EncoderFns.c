@@ -21,6 +21,16 @@ uint8_t AS5047_checkEncoderHealth(void){
 	}
 }
 
+Errfl errfl;
+uint8_t AS5047_checkEncoderError(void){
+    errfl.raw = AS5047_SPI_Read(ERRFL_READ_FRAME,0);
+    if (errfl.values.frerr == 1){return AS5047_FRAME_ERROR;}
+    else if (errfl.values.invcomm == 1){return AS5047_INVALID_COMMAND_ERROR;}
+    else if(errfl.values.parerr == 1){return AS5047_PARITY_ERROR;}
+    else {return AS5047_NO_ERROR;}
+}
+
+
 // Setting up the encoder to work in ABI mode. ABI will be turned on. There is also a provision for getting a PWM output across W_Hall. This is turned off.
 void SetupABIwithoutPWM(void){
   Settings1 settings1;

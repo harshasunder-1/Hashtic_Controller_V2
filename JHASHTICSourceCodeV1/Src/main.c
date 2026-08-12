@@ -176,7 +176,7 @@ int main(void)
   /* USER CODE END 1 */
   
 
-  /* MCU Configuration--------------------------------------------------------*/
+  /* MCU Configuration---3-----------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
@@ -249,13 +249,13 @@ int main(void)
   REGEN AND START_SEQ_IQ have to be set correctly
   
   POD 5, motor6,signForCW= -1,RIGHT_SIDE
-  POD 2,motor5,signForCW= 1,LEFT_SIDE
-  POD 4,
+  POD 2,motor9, signForCE= 1,RIGHT_SIDE
+  POD 4,motor5,signForCW= 1,LEFT_SIDE
   */
   
   MotorConfig_Init();
   //Uncomment only once when programming a new inverter motor pair 
-  //MotorConfig_Write(5, 1, LEFT_SIDE);  // (motor ID, signforCW,positioninPod,
+  //MotorConfig_Write(9, 1, RIGHT_SIDE);  // (motor ID, signforCW,positioninPod,
   
   if (MotorConfig_Read(&eecfg) == EE_OK){  //TODO : use uint8 or 16 bit read/write functions inside motorConfig
     if (CheckEEConfigValues(&eecfg) == EEPROM_VALUES_OK){
@@ -364,6 +364,7 @@ int main(void)
     if (triggerSPIAngleReading){
       spiRaw = ENC_getRawReadingFromSPI();
       if (spiRaw==-1){ 
+        AS5047_checkEncoderError(); // TODO: will clear the error on the chip -> later keep counts of which error and how many times.
         spi_FailCount ++;
         if (spi_FailCount >= 3){
           ss.CustomFaults = ENCODER_SPI_READ_FAIL;
