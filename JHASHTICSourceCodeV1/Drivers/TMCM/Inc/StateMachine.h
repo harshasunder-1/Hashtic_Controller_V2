@@ -10,6 +10,7 @@ typedef enum {
   CC_RUNNING_CL,
   CC_RUNNING_OL,
   CC_ERROR,
+  CC_FINISH,
 }cc_state_t;
 
 
@@ -43,6 +44,7 @@ typedef struct{
   uint16_t iqRef;
   int8_t brakeState;
   uint8_t engageBrake;
+  uint8_t CL_DeltaRPMThreshold;
 
   float travelledDist;
 
@@ -77,5 +79,5 @@ typedef struct{
 uint8_t CheckPodState(systemState *ss);
 void updateTMCMState(systemState *ss);
 uint8_t TMCM_SpeedLoop_TurnOff(void);
-
+uint16_t Calculate_CLDeltaRPMThreshold(uint16_t targetRpm);
 #endif

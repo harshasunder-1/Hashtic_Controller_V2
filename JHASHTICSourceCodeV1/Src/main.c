@@ -72,13 +72,6 @@ EEConfig eecfg;
 extern FOCVars_t FOCVars[1];
 extern int16_t hTargetSpeedUserDefined;
 
- // var for eeprom 
-extern uint32_t motorID;
-extern int32_t signForCWRotation;
-extern int32_t positionInPod;
-
-
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -157,7 +150,7 @@ int16_t spiRaw = 0 ;
 uint8_t triggerSPIAngleReading = 0;
 float ABI_elAngle = 0,spi_elAngle=0,deltaAngles=0,encFault_deltaAngle=0,encFault_spiAngle=0;
 uint8_t encFaultCounter = 0,testDirError = 0,resetCustomFaults=0,spi_FailCount = 0;
-uint8_t ssqErrorState = 0,resetStartSeq=0,dbgAppyRegen=0;
+uint8_t ssqErrorState = 0,resetStartSeq=0;
 State_t start_state;
 uint32_t t1=0;
 extern MCI_Handle_t * pMCI[NBR_OF_MOTORS];
@@ -219,7 +212,7 @@ int main(void)
   MC_AcknowledgeFaultMotor1();
   HAL_Delay(200);
   
-  //set up interrupts for TIM2 encoder
+  //set up interrupts for TIM2 encoder err detection
   __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_DIR);
   __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_IERR);
   __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_TERR);
@@ -238,24 +231,19 @@ int main(void)
   ss.cc_state = CC_IDLE;
    
   /********************* motor id verification from EEPROM ***************************/
-  //Load Motor ID from Eeprom.(Find out how to do this in G4)
+  //Load Motor ID,sign for CW and position in POD from Eeprom
   //sign for CW = -1 means, motor shaft rotates counter clockwise when Iq is +ve
   //check if within Range, both readings are same.
-    /* 
-  | LEFT_SIDE  | sign for CW = 1  | Iq = +ve for FWD DIRECTION |REGEN -ve for FWD DIRECTION
-  | LEFT SIDE  | sign for CW = -1 | Iq = -ve for FWD DIRECTION |REGEN +ve for FWD DIRECTION
-  | RIGHT_SIDE | sign for CW = 1  | Iq = -ve for FWD DIRECTION |REGEN +ve for FWD DIRECTION
-  | RIGHT_SIDE | sign for CW = -1 | Iq = +ve for FWD DIRECTION |
-  REGEN AND START_SEQ_IQ have to be set correctly
-  
+  /*  
   POD 5, motor6,signForCW= -1,RIGHT_SIDE
-  POD 2,motor9, signForCE= 1,RIGHT_SIDE
+  POD 2,motor9, signForCW= 1,RIGHT_SIDE
   POD 4,motor5,signForCW= 1,LEFT_SIDE
   */
   
   MotorConfig_Init();
+  
   //Uncomment only once when programming a new inverter motor pair 
-  //MotorConfig_Write(9, 1, RIGHT_SIDE);  // (motor ID, signforCW,positioninPod,
+  //MotorConfig_Write(11, 1, RIGHT_SIDE);  // (motor ID, signforCW,positioninPod,
   
   if (MotorConfig_Read(&eecfg) == EE_OK){  //TODO : use uint8 or 16 bit read/write functions inside motorConfig
     if (CheckEEConfigValues(&eecfg) == EEPROM_VALUES_OK){
@@ -270,7 +258,6 @@ int main(void)
     ss.CustomFaults = EEPROM_READING_ERR;
     ss.cc_state = CC_ERROR;
   }
-  
   
   /********************************************/
   
@@ -296,6 +283,7 @@ int main(void)
       }
    }
     
+  /*Now setup all state variables */
   if (ss.cc_state == CC_IDLE){
     InitializeEncFaults(&encFlts);
     initializeStartSeqParams(&ssq);
@@ -312,17 +300,18 @@ int main(void)
    //Wait till State goes to IDLE. The turn the motor on and off , so that the ABI and SPI sensors synchronize.
     start_state = MC_GetSTMStateMotor1();
     if (start_state == IDLE){
-      MC_ProgramSpeedRampMotor1(0, 300 ); //10/8936 * 35 ~  0.04RMS
+      MC_ProgramSpeedRampMotor1(0, 300 );
       MC_StartMotor1();
       HAL_Delay(1000);
       TMCM_SpeedLoop_TurnOff();
     }else{
-      //SEE the MCSDK fault
+      //if state is not idle here, then some MCSDK fault. TODO: Read that fault and handle it
       ss.CustomFaults = START_IDLE_NOT_REACHED;
       ss.cc_state = CC_ERROR;
     }
   }
   
+  //if any of the errors above have fired, do not allow the inverter to start. Error msgs to PCM will keep going from interrupt.
   if (ss.cc_state == CC_ERROR){
     while(1){
       //Wait for ever and keep sending error msg
@@ -359,7 +348,7 @@ int main(void)
     
 
     //----------------------------------------------
-     // Happens for all types of run all the time.
+    //Happens for all types of run all the time.
     //Stop if SPI and ABI dont have the same reading.
     if (triggerSPIAngleReading){
       spiRaw = ENC_getRawReadingFromSPI();
@@ -401,11 +390,14 @@ int main(void)
       }else{
          ss.motorDirection = ss.podDirection;
       }
-      
       ss.cc_state = CC_RUNNING_CL;
       ss.cc_ramp = CC_RAMPUP;
       ss.runType=LCC;
+      
       ss.travelledDist=0;
+      
+      ss.CL_DeltaRPMThreshold = Calculate_CLDeltaRPMThreshold(600);
+      
       DisableEncoderFltChking(&encFlts);
       ResetEncFaults(&encFlts);
       EnableEncoderFltChking(&encFlts);
@@ -437,7 +429,7 @@ int main(void)
       lcc.stop = 0;
     }
     
-    /*---Turn off for continuous can -------*/
+    /*---end of lcc code -------*/
     
     //BRAKING FOR CC
     if (ss.runType == CC){
@@ -450,7 +442,6 @@ int main(void)
         if (b.brakeCounter == 0){
            TMCM_SpeedLoop_TurnOff();
            FDCAN_SendControlledBrakeMsg();
-          // t1 = HAL_GetTick();
            ss.brakeState++;
            b.brakeCounter++;
            ss.engageBrake = 0;
@@ -460,6 +451,7 @@ int main(void)
         }       
     }
     
+    // NEEDS TO BE REMOVED IF WE RE TRYING TO RUN LONGER DISTANCES THAN 55M
     if (ss.cc_state == CC_RUNNING_CL || ss.cc_state == CC_RUNNING_OL){
       if (ss.travelledDist >= 55){ //hardocded to 55- in all operating modes, including LCC
        TMCM_SpeedLoop_TurnOff(); 
@@ -490,26 +482,29 @@ int main(void)
     } 
     
     if (ss.cc_state == CC_RUNNING_CL){  
-        //delta RPM of 100
-        deltaRPM = ss.targetRPM - ss.currentAbsRpm;
+        deltaRPM = abs(hTargetSpeedUserDefined) - ss.currentAbsRpm;
         if (deltaRPM < 0){deltaRPM = -deltaRPM;}
-        if(( deltaRPM > RPM_CLOSED_LOOP_THRESHOLD_CC) && (ss.indexID >25)){
+        if(deltaRPM > ss.CL_DeltaRPMThreshold){
             ss.cc_state = CC_ERROR;
             ss.CustomFaults = CC_CLOSED_LOOP_FAIL;
         }
                                 
        //if we re giving large current and not moving , stop.
-       /* if ((FOCVars[0].Iqdref.q > 2500) && (ss.currentAbsRpm < 5)){  //requires about 1300 to start. so say 2500 here
+       // DOESNT WORK WITH LCC
+       if (ssq.currentState == TRANSITION_DONE){
+          uint16_t absIqRef = abs(FOCVars[0].Iqdref.q);
+          if ((absIqRef > 4000) && (ss.currentAbsRpm < 5)){  //requires about 1300 to start.even with metal bed if we re giving so much and not moving,stop
             ss.cc_state = CC_ERROR;
             ss.CustomFaults = CC_OVC_STALL;
-        } */
+          }
+       }
         
-       /* while moving, if you detect motion in the opp direction , turn off*/
+       /* while motoring, if you detect motion in the opp direction , turn off. SHOULD WE keep this for REGEN also? In case regen doesnt stop youll go in reverse*/
        startEncoderChecking(&encFlts,ss.currentAbsRpm);
        stopEncoderChecking(&encFlts,abs(ss.targetRPM));
        if (encFlts.encoderCheckingOn){
          if (encFlts.EncoderErrFlag == 1){
-           ss.cc_state = CC_ERROR;
+            ss.cc_state = CC_ERROR;
            if (encFlts.directionErrFlag){
                ss.CustomFaults = ENCODER_DIR_ERROR;
            }
@@ -522,28 +517,23 @@ int main(void)
            else{}
         }
        }    
-    }
+    } //closes RUNNING_CL
        
-    if (dbgAppyRegen){
-      applyRegen(ss.motorDirection);
-      ss.cc_ramp = CC_RAMPDOWN;  //whenever we regen we have to put state as cc_rampdown and state as running ol
-      ss.cc_state = CC_RUNNING_OL;
-      dbgAppyRegen = 0;
-    }
     
-    //turn off during Regen
+    //turn off during Regen. Whenever regen, state is being made RUNNING_OL. TODO: think if this is best way
     if (ss.cc_state == CC_RUNNING_OL){
       if (ss.currentAbsRpm < 100){
         cc_turnOff = 1;
       }
     }
         
-    if (ss.cc_state == CC_ERROR){ // turn off. running this continously prevents any other command from restarting the motor.
+    if (ss.cc_state == CC_ERROR){ // turn off. running this continously prevents any other command from restarting the motor.Precharge command from PCM resets this.
         TMCM_SpeedLoop_TurnOff(); 
        // ss.engageBrake =1; //do mech braking here also
         ccT.timerOnBool = 0;
         ss.cc_ramp = CC_RAMPOFF;
         ss.runType=NO_RUN;
+        hTargetSpeedUserDefined=0;
         DisableEncoderFltChking(&encFlts);
         ssq.PCM_startCommand = 0;
     }
@@ -551,58 +541,19 @@ int main(void)
     if (cc_turnOff){ // used everywhere to turn off correctly
       TMCM_SpeedLoop_TurnOff(); 
       ss.cc_ramp = CC_RAMPOFF;
-      ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
+      ss.cc_state = CC_FINISH;
       ss.runType=NO_RUN;
       hTargetSpeedUserDefined=0;
       DisableEncoderFltChking(&encFlts);
       FDCAN_SendPCMAckMsg(1);
       cc_turnOff = 0;
     }
-
-    
     
     if(nvicReset){
        HAL_NVIC_SystemReset();
     }
     
-    //starting torque calibration
-    if(st_calib_on){
-      if (step_current == 0){
-        MC_ProgramTorqueRampMotor1(step_current, 1000 );
-        MC_StartMotor1();
-        step_current += 89;
-        st_increment = 0;
-        st_counter = 0;
-        HAL_Delay(1000);
-        st_encVal_start = htim2.Instance->CNT;
-      }else{
-        if(st_increment==1){
-            st_encVal = htim2.Instance->CNT;
-            stEnc_deltaVal = st_encVal - st_encVal_start;
-            stEnc_absDeltaVal = stEnc_deltaVal;
-            if (stEnc_deltaVal < 0 ){
-              stEnc_absDeltaVal  = -stEnc_deltaVal;
-            }
-            if (stEnc_absDeltaVal <= 100){
-              if (step_current < 4468){
-                step_current = step_current + 89;
-                MC_ProgramTorqueRampMotor1(step_current, 1000 );
-                st_increment = 0;
-              }
-            }else{
-              st_calib_off = 1;
-            }
-        }
-    }
-  } // closes st_calib on
-    
-    if (st_calib_off){
-      TMCM_SpeedLoop_TurnOff(); 
-      st_calib_on = 0;
-      st_calib_off = 0;
-    }
-
-    //  HAL_GPIO_WritePin(FAULT_1_GPIO_Port,FAULT_1_Pin,GPIO_PIN_SET);
+   //  HAL_GPIO_WritePin(FAULT_1_GPIO_Port,FAULT_1_Pin,GPIO_PIN_SET);
    //  HAL_GPIO_WritePin(FAULT_2_GPIO_Port,FAULT_2_Pin,GPIO_PIN_SET);
    
     

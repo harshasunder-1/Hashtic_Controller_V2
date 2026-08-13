@@ -50,7 +50,7 @@ ErrorState ExecStartSeq(startSeq *ssq_,systemState *ss){
 
             MC_ProgramSpeedRampMotor1(ss->targetRPM /6 * ss->motorDirection, 8000 );
             //sendPCM_MSG(currentRPM, currentPosition);
-            ssq_->currentState = WAIT_PCM;
+            ssq_->currentState = TRANSITION_DONE;
             break;
             }
 

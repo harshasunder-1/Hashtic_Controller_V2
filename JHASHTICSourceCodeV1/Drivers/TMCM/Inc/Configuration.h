@@ -20,6 +20,7 @@
 #define MOTOR8 8
 #define MOTOR9 9
 #define MOTOR10 10
+#define MOTOR11 11
 
 #define MOTOR1_ZERO_POS 2586
 #define MOTOR2_ZERO_POS 3721
@@ -31,6 +32,7 @@
 #define MOTOR8_ZERO_POS 12089
 #define MOTOR9_ZERO_POS 5492
 #define MOTOR10_ZERO_POS 0
+#define MOTOR11_ZERO_POS 13281
 
 typedef struct {
   uint8_t motorID;

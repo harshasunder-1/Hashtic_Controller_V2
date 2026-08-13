@@ -29,15 +29,15 @@
         <EnforceMemoryConfiguration>1</EnforceMemoryConfiguration>
     </ArmDriver>
     <StLinkDriver>
-        <stlinkserialNo>004F00323033511735393935</stlinkserialNo>
+        <stlinkserialNo>003900363133510237363734</stlinkserialNo>
         <stlinkfoundProbes />
-        <stlinkResetStyle>0</stlinkResetStyle>
-        <stlinkResetStrategy>2</stlinkResetStrategy>
         <LeaveTargetRunning>_ 0</LeaveTargetRunning>
         <CStepIntDis>_ 0</CStepIntDis>
+        <stlinkResetStyle>0</stlinkResetStyle>
+        <stlinkResetStrategy>2</stlinkResetStrategy>
     </StLinkDriver>
     <DebugChecksum>
-        <Checksum>2329645597</Checksum>
+        <Checksum>2801252231</Checksum>
     </DebugChecksum>
     <Exceptions>
         <StopOnUncaught>_ 0</StopOnUncaught>
@@ -84,8 +84,9 @@
         <Fmt8>continousControlTimer-PCM_timer	3	0</Fmt8>
         <Fmt9>laptopContinuousControl-idx	3	0</Fmt9>
         <Fmt10>laptopContinuousControl-stopIdx	3	0</Fmt10>
-        <Fmt11>systemState-MCSDK_PreFault	4	0</Fmt11>
-        <Fmt12>systemState-MCSDK_STATE	3	0</Fmt12>
+        <Fmt11>systemState-CL_DeltaRPMThreshold	3	0</Fmt11>
+        <Fmt12>systemState-MCSDK_PreFault	4	0</Fmt12>
+        <Fmt13>systemState-MCSDK_STATE	3	0</Fmt13>
     </struct_types>
     <array_types>
         <Fmt0>uint8_t[16]	3	0</Fmt0>
@@ -146,13 +147,6 @@
         <ShowTimeSum>1</ShowTimeSum>
         <SumSortOrder>0</SumSortOrder>
     </EventLog>
-    <DriverProfiling>
-        <Enabled>0</Enabled>
-        <Mode>3</Mode>
-        <Graph>0</Graph>
-        <Symbiont>0</Symbiont>
-        <Exclusions />
-    </DriverProfiling>
     <TermIOLog>
         <LoggingEnabled>_ 0</LoggingEnabled>
         <LogFile>_ ""</LogFile>
@@ -168,4 +162,11 @@
         <Count>0</Count>
         <SuppressDialog>0</SuppressDialog>
     </Aliases>
+    <DriverProfiling>
+        <Enabled>0</Enabled>
+        <Mode>3</Mode>
+        <Graph>0</Graph>
+        <Symbiont>0</Symbiont>
+        <Exclusions />
+    </DriverProfiling>
 </settings>

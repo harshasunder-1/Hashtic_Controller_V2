@@ -471,9 +471,9 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
              ss.motorDirection = ss.podDirection;
           }
           
-          
           ss.targetRPM = canContIp.controlQty;
           ss.brakeDistance = canContIp.indexID;
+          ss.CL_DeltaRPMThreshold =  Calculate_CLDeltaRPMThreshold(ss.targetRPM);
           
           firstMsg = 1;
           //start Timer 

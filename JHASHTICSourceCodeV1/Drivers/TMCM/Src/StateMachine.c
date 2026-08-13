@@ -3,6 +3,7 @@
 #include "StateMachine.h"
 #include "state_machine.h" //this is mcsdk state machine
 #include "motorcontrol.h"
+#include "ControlFns.h"
 
 extern MCI_Handle_t * pMCI[NBR_OF_MOTORS];
 
@@ -59,4 +60,15 @@ uint8_t TMCM_SpeedLoop_TurnOff(void){
     pMCI[0]->pSTC->TorqueRef = 0;
     return 1;
 }
+
+uint16_t Calculate_CLDeltaRPMThreshold(uint16_t targetRpm){         //closed loop threshold scales with RPM.
+  uint16_t out = 0;
+  if (targetRpm <=300){
+      out = targetRpm/2;
+    }else{
+      out  = RPM_CLOSED_LOOP_THRESHOLD_CC;
+    }
+  return out;
+}
+          
 

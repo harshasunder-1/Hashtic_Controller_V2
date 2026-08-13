@@ -133,11 +133,6 @@ uint8_t CheckEEConfigValues(EEConfig *ee){
         return  ee->eeReadStatus;
     }
     
-    // position in pod
-    if (ee->positionInPod != ee->positionInPodCopy){
-        ee->eeReadStatus = EEPROM_SIDES_NOT_MATCHING;
-        return  ee->eeReadStatus;
-    }
 
     if (ee->positionInPod != LEFT_SIDE && ee->positionInPod != RIGHT_SIDE){
         ee->eeReadStatus = EEPROM_SIDES_OUT_OF_RANGE;
@@ -148,6 +143,13 @@ uint8_t CheckEEConfigValues(EEConfig *ee){
         ee->eeReadStatus = EEPROM_SIDES_OUT_OF_RANGE;
         return  ee->eeReadStatus;
     }
+    
+        // position in pod
+    if (ee->positionInPod != ee->positionInPodCopy){
+        ee->eeReadStatus = EEPROM_SIDES_NOT_MATCHING;
+        return  ee->eeReadStatus;
+    }
+
     
     return  ee->eeReadStatus;
 }

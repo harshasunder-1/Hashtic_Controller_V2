@@ -366,7 +366,7 @@
                     <state>$PROJ_DIR$/../Drivers/CMSIS/DSP/Include</state>
                     <state>$PROJ_DIR$\..\Drivers\AS5x47P</state>
                     <state>$PROJ_DIR$\..\Drivers\TMCM\Inc</state>
-                    <state>$PROJ_DIR$\..\..\..\Hashtic_Controller_EEEPROM\JHASHTICSourceCodeV1\Drivers\EEEPROM\Inc</state>
+                    <state>F:\Harsha\Hashtic_Controller_V2\JHASHTICSourceCodeV1\Drivers\EEPROM\Inc</state>
                 </option>
                 <option>
                     <name>CCStdIncCheck</name>
@@ -694,7 +694,7 @@
             <data>
                 <extensions></extensions>
                 <cmdline></cmdline>
-                <hasPrio>0</hasPrio>
+                <hasPrio>80</hasPrio>
                 <buildSequence>inputOutputBased</buildSequence>
             </data>
         </settings>

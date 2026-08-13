@@ -30,7 +30,7 @@ typedef struct {
 }laptopContinuousControl;
 
 #define ONE_SHOT_REGEN_FIXED_IQ 500
-#define RPM_CLOSED_LOOP_THRESHOLD_CC 200
+#define RPM_CLOSED_LOOP_THRESHOLD_CC 150
 
 void applyRegen(int currentDirection);
 void laptopRun(laptopControl *lc,systemState *ss);
