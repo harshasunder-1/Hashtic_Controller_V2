@@ -31,9 +31,9 @@ const uint16_t CONTINOUS_RPMS[701]={30,30,30,30,30,30,30,30,30,30,31,31,31,31,31
 //MotorControl Functions
 void applyRegen(int currentDirection){
   if(currentDirection == 1){  //change this later..make it cleaner, direction from outside?
-      MC_ProgramTorqueRampMotor1(-ONE_SHOT_REGEN_FIXED_IQ, 1000 ); 
+      MC_ProgramTorqueRampMotor1(-ONE_SHOT_REGEN_FIXED_IQ,1000 ); 
     }else{
-      MC_ProgramTorqueRampMotor1(ONE_SHOT_REGEN_FIXED_IQ, 1000 );
+      MC_ProgramTorqueRampMotor1(ONE_SHOT_REGEN_FIXED_IQ,1000 );
     }
 }
 

@@ -69,9 +69,10 @@ startSeq ssq;
 brakeCtrl b;
 EEConfig eecfg;
 
+
 extern FOCVars_t FOCVars[1];
 extern int16_t hTargetSpeedUserDefined;
-
+extern SpeednTorqCtrl_Handle_t *pSTC[NBR_OF_MOTORS];
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -152,7 +153,6 @@ float ABI_elAngle = 0,spi_elAngle=0,deltaAngles=0,encFault_deltaAngle=0,encFault
 uint8_t encFaultCounter = 0,testDirError = 0,resetCustomFaults=0,spi_FailCount = 0;
 uint8_t ssqErrorState = 0,resetStartSeq=0;
 State_t start_state;
-uint32_t t1=0;
 extern MCI_Handle_t * pMCI[NBR_OF_MOTORS];
 
 /* USER CODE END 0 */
@@ -235,15 +235,19 @@ int main(void)
   //sign for CW = -1 means, motor shaft rotates counter clockwise when Iq is +ve
   //check if within Range, both readings are same.
   /*  
-  POD 5, motor6,signForCW= -1,RIGHT_SIDE
+  POD 5,motor10,signForCW=-1,LEFT_SIDE  /  motor6,signForCW= -1,RIGHT_SIDE
   POD 2,motor9, signForCW= 1,RIGHT_SIDE
   POD 4,motor5,signForCW= 1,LEFT_SIDE
+
+  POD 3,motor3,signForCW= 1,RIGHT_SIDE
+
+
   */
   
   MotorConfig_Init();
   
   //Uncomment only once when programming a new inverter motor pair 
-  //MotorConfig_Write(11, 1, RIGHT_SIDE);  // (motor ID, signforCW,positioninPod,
+  //MotorConfig_Write(3, 1, RIGHT_SIDE);  // (motor ID, signforCW,positioninPod,
   
   if (MotorConfig_Read(&eecfg) == EE_OK){  //TODO : use uint8 or 16 bit read/write functions inside motorConfig
     if (CheckEEConfigValues(&eecfg) == EEPROM_VALUES_OK){
@@ -263,11 +267,6 @@ int main(void)
   
   if (ss.cc_state == CC_IDLE){ // if no errors use values read to setup inverter
     
-      if (c.signForCWRotation == -1){
-        PIDSpeedHandle_M1.hKpGain *= -1;
-        PIDSpeedHandle_M1.hKiGain *= -1;
-      }
-  
       int16_t response = getMotorIndexFromMotorID(c.motorID);
       if (response != -1){
           c.zeroPos = response;
@@ -297,6 +296,8 @@ int main(void)
     ccT.PCM_timer_thresh = 6;
     cc_stopMsg_oneTime = 0;
     
+    updateTMCMState(&ss); //voltage
+        
    //Wait till State goes to IDLE. The turn the motor on and off , so that the ABI and SPI sensors synchronize.
     start_state = MC_GetSTMStateMotor1();
     if (start_state == IDLE){
@@ -385,11 +386,7 @@ int main(void)
     if (lcc.start){
       laptopCC_on(&lcc);
       ss.podDirection = lcc.direction;
-      if (c.signForCWRotation == 1){
-        ss.motorDirection = ss.podDirection * c.signForCWRotation;
-      }else{
-         ss.motorDirection = ss.podDirection;
-      }
+      ss.motorDirection = ss.podDirection;
       ss.cc_state = CC_RUNNING_CL;
       ss.cc_ramp = CC_RAMPUP;
       ss.runType=LCC;
@@ -401,6 +398,7 @@ int main(void)
       DisableEncoderFltChking(&encFlts);
       ResetEncFaults(&encFlts);
       EnableEncoderFltChking(&encFlts);
+      
       lcc.start = 0;
     }
     
@@ -437,23 +435,45 @@ int main(void)
         ss.engageBrake = 1;
       }
     }
-    
+    // hitting break once
     if (ss.engageBrake == 1){
         if (b.brakeCounter == 0){
            TMCM_SpeedLoop_TurnOff();
-           FDCAN_SendControlledBrakeMsg();
+           FDCAN_SendControlledBrakeMsg();     
            ss.brakeState++;
            b.brakeCounter++;
            ss.engageBrake = 0;
            ss.cc_ramp = CC_RAMPOFF;
            ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
            FDCAN_SendPCMAckMsg(1); 
-        }       
-    }
+        }
+}
     
-    // NEEDS TO BE REMOVED IF WE RE TRYING TO RUN LONGER DISTANCES THAN 55M
+  /*   hit break twice to test
+    if (ss.engageBrake == 1){
+        if (b.brakeCounter == 0){
+           TMCM_SpeedLoop_TurnOff();
+           FDCAN_SendControlledBrakeMsg(); 
+           b.brakeTime1 = HAL_GetTick(); 
+           ss.brakeState++;
+           b.brakeCounter++;
+        }
+        
+       if (b.brakeCounter == 1){
+          if(HAL_GetTick()-b.brakeTime1>=200){
+             FDCAN_SendControlledBrakeMsg();
+             ss.engageBrake = 0;
+             ss.cc_ramp = CC_RAMPOFF;
+             ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
+             FDCAN_SendPCMAckMsg(1); 
+            }
+        }
+   } // closes engage brake == 1
+ */
+
+    // NEEDS TO BE REMOVED IF WE RE TRYING TO RUN LONGER DISTANCES THAN X dist
     if (ss.cc_state == CC_RUNNING_CL || ss.cc_state == CC_RUNNING_OL){
-      if (ss.travelledDist >= 55){ //hardocded to 55- in all operating modes, including LCC
+      if (ss.travelledDist >= 200){ //hardocded 
        TMCM_SpeedLoop_TurnOff(); 
        ss.cc_ramp = CC_RAMPOFF;
        ss.cc_state = CC_ERROR; // has to be error to stop it looking at the continous can msgs
@@ -481,23 +501,25 @@ int main(void)
        resetStartSeq = 0;
     } 
     
-    if (ss.cc_state == CC_RUNNING_CL){  
+    if ((ss.cc_state == CC_RUNNING_CL) && (ssq.currentState == TRANSITION_DONE)){ 
+      
+      //RPM condition 1
+      if (abs(hTargetSpeedUserDefined) > 100){
         deltaRPM = abs(hTargetSpeedUserDefined) - ss.currentAbsRpm;
         if (deltaRPM < 0){deltaRPM = -deltaRPM;}
         if(deltaRPM > ss.CL_DeltaRPMThreshold){
             ss.cc_state = CC_ERROR;
             ss.CustomFaults = CC_CLOSED_LOOP_FAIL;
         }
+      }
                                 
        //if we re giving large current and not moving , stop.
        // DOESNT WORK WITH LCC
-       if (ssq.currentState == TRANSITION_DONE){
-          uint16_t absIqRef = abs(FOCVars[0].Iqdref.q);
-          if ((absIqRef > 4000) && (ss.currentAbsRpm < 5)){  //requires about 1300 to start.even with metal bed if we re giving so much and not moving,stop
-            ss.cc_state = CC_ERROR;
-            ss.CustomFaults = CC_OVC_STALL;
-          }
-       }
+        uint16_t absIqRef = abs(FOCVars[0].Iqdref.q);
+        if ((absIqRef > 4000) && (ss.currentAbsRpm < 5)){  //requires about 1300 to start.even with metal bed if we re giving so much and not moving,stop
+          ss.cc_state = CC_ERROR;
+          ss.CustomFaults = CC_OVC_STALL;
+        }
         
        /* while motoring, if you detect motion in the opp direction , turn off. SHOULD WE keep this for REGEN also? In case regen doesnt stop youll go in reverse*/
        startEncoderChecking(&encFlts,ss.currentAbsRpm);
@@ -1400,6 +1422,24 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+// Modified function that replaces the weak function in MCSDK. Used to set the correct direction for the torque
+// when the motor is wound opposite
+void FOC_CalcCurrRef(uint8_t bMotor)
+{
+  if(FOCVars[bMotor].bDriveInput == INTERNAL)
+  {
+    FOCVars[bMotor].hTeref = STC_CalcTorqueReference(pSTC[bMotor]);
+    
+    // 2. Convert to Electrical Iq, flipping the sign if reverse wound
+    if (c.signForCWRotation == -1) {
+        FOCVars[bMotor].Iqdref.q = -(FOCVars[bMotor].hTeref);
+    } else {
+        FOCVars[bMotor].Iqdref.q = FOCVars[bMotor].hTeref;
+    }
+  }
+}
+
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 {
   

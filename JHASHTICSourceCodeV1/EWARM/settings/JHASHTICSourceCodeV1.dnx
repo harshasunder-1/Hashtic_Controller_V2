@@ -29,15 +29,15 @@
         <EnforceMemoryConfiguration>1</EnforceMemoryConfiguration>
     </ArmDriver>
     <StLinkDriver>
-        <stlinkserialNo>003900363133510237363734</stlinkserialNo>
+        <stlinkserialNo>004F00323033511735393935</stlinkserialNo>
         <stlinkfoundProbes />
-        <LeaveTargetRunning>_ 0</LeaveTargetRunning>
-        <CStepIntDis>_ 0</CStepIntDis>
         <stlinkResetStyle>0</stlinkResetStyle>
         <stlinkResetStrategy>2</stlinkResetStrategy>
+        <LeaveTargetRunning>_ 0</LeaveTargetRunning>
+        <CStepIntDis>_ 0</CStepIntDis>
     </StLinkDriver>
     <DebugChecksum>
-        <Checksum>2801252231</Checksum>
+        <Checksum>3509236912</Checksum>
     </DebugChecksum>
     <Exceptions>
         <StopOnUncaught>_ 0</StopOnUncaught>
@@ -87,6 +87,7 @@
         <Fmt11>systemState-CL_DeltaRPMThreshold	3	0</Fmt11>
         <Fmt12>systemState-MCSDK_PreFault	4	0</Fmt12>
         <Fmt13>systemState-MCSDK_STATE	3	0</Fmt13>
+        <Fmt14>systemState-motorDirection	3	0</Fmt14>
     </struct_types>
     <array_types>
         <Fmt0>uint8_t[16]	3	0</Fmt0>
@@ -147,6 +148,13 @@
         <ShowTimeSum>1</ShowTimeSum>
         <SumSortOrder>0</SumSortOrder>
     </EventLog>
+    <DriverProfiling>
+        <Enabled>0</Enabled>
+        <Mode>3</Mode>
+        <Graph>0</Graph>
+        <Symbiont>0</Symbiont>
+        <Exclusions />
+    </DriverProfiling>
     <TermIOLog>
         <LoggingEnabled>_ 0</LoggingEnabled>
         <LogFile>_ ""</LogFile>
@@ -156,17 +164,11 @@
     </DisassembleMode>
     <Breakpoints2>
         <Bp0>_ 0 "EMUL_DATA" "FDCAN_SendPCMAckMsg" 0 0 0 0 4294967295</Bp0>
-        <Count>1</Count>
+        <Bp1>_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\Src\main.c}.1501.1" 0 0 1 "" 0 "" 0</Bp1>
+        <Count>2</Count>
     </Breakpoints2>
     <Aliases>
         <Count>0</Count>
         <SuppressDialog>0</SuppressDialog>
     </Aliases>
-    <DriverProfiling>
-        <Enabled>0</Enabled>
-        <Mode>3</Mode>
-        <Graph>0</Graph>
-        <Symbiont>0</Symbiont>
-        <Exclusions />
-    </DriverProfiling>
 </settings>

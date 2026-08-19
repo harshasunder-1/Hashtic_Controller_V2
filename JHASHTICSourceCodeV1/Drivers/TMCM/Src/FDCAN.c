@@ -465,11 +465,7 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
             if (c.positionInPod == RIGHT_SIDE){ss.podDirection = -1;}
           }
           
-          if (c.signForCWRotation == 1){
-            ss.motorDirection = ss.podDirection * c.signForCWRotation; // 
-          }else{
-             ss.motorDirection = ss.podDirection;
-          }
+          ss.motorDirection = ss.podDirection;
           
           ss.targetRPM = canContIp.controlQty;
           ss.brakeDistance = canContIp.indexID;
@@ -480,7 +476,7 @@ void FDCAN_parseForMotor(void){ // This gets toggled inside the interrupt. Whene
           //ccT.PCM_timer = 0;
           //ccT.timerOnBool = 1;
           ss.CustomFaults = NO_FAULTS;
-          ss.cc_state = CC_RUNNING_CL;
+          ss.cc_state = CC_RUNNING_CL; 
           ss.cc_ramp = CC_RAMPUP;
           ss.runType=CC;
           ss.travelledDist = 0;
